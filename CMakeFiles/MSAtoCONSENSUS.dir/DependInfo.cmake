@@ -4,7 +4,7 @@ set(CMAKE_DEPENDS_LANGUAGES
   )
 # The set of files for implicit dependencies of each language:
 set(CMAKE_DEPENDS_CHECK_CXX
-  "/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/MSA_fasta_to_Consensus.cpp" "/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o"
+  "/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/Scripts/MSA_fasta_to_Consensus.cpp" "/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")
 

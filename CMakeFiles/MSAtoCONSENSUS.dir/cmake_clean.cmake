@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o"
+  "CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o"
   "bin/MSAtoCONSENSUS"
   "bin/MSAtoCONSENSUS.pdb"
 )

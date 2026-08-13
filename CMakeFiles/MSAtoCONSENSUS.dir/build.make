@@ -57,27 +57,27 @@ include CMakeFiles/MSAtoCONSENSUS.dir/progress.make
 # Include the compile flags for this target's objects.
 include CMakeFiles/MSAtoCONSENSUS.dir/flags.make
 
-CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o: CMakeFiles/MSAtoCONSENSUS.dir/flags.make
-CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o: MSA_fasta_to_Consensus.cpp
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o"
-	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o -c /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/MSA_fasta_to_Consensus.cpp
+CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o: CMakeFiles/MSAtoCONSENSUS.dir/flags.make
+CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o: Scripts/MSA_fasta_to_Consensus.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --progress-dir=/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o"
+	/usr/bin/c++  $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -o CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o -c /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/Scripts/MSA_fasta_to_Consensus.cpp
 
-CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/MSA_fasta_to_Consensus.cpp > CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.i
+CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Preprocessing CXX source to CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/Scripts/MSA_fasta_to_Consensus.cpp > CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.i
 
-CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/MSA_fasta_to_Consensus.cpp -o CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.s
+CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green "Compiling CXX source to assembly CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/sheepless/CLionProjects/Genomics_Scripts_Zlab/Scripts/MSA_fasta_to_Consensus.cpp -o CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.s
 
 # Object files for target MSAtoCONSENSUS
 MSAtoCONSENSUS_OBJECTS = \
-"CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o"
+"CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o"
 
 # External object files for target MSAtoCONSENSUS
 MSAtoCONSENSUS_EXTERNAL_OBJECTS =
 
-bin/MSAtoCONSENSUS: CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o
+bin/MSAtoCONSENSUS: CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o
 bin/MSAtoCONSENSUS: CMakeFiles/MSAtoCONSENSUS.dir/build.make
 bin/MSAtoCONSENSUS: CMakeFiles/MSAtoCONSENSUS.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX executable bin/MSAtoCONSENSUS"

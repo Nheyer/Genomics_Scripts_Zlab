@@ -1,1 +1,1 @@
-/usr/bin/c++     CMakeFiles/MSAtoCONSENSUS.dir/MSA_fasta_to_Consensus.cpp.o  -o bin/MSAtoCONSENSUS 
+/usr/bin/c++     CMakeFiles/MSAtoCONSENSUS.dir/Scripts/MSA_fasta_to_Consensus.cpp.o  -o bin/MSAtoCONSENSUS 
