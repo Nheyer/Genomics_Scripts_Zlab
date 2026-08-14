@@ -24,32 +24,71 @@ int parse_CLI(argparse::ArgumentParser  * Parser) {
         .help("This is a fna file, don't use file ending")
         .default_value(false)
         .implicit_value(true);
+    Parser->add_argument("--verbose","-v")
+        .help("Be loud?").flag()
      return 0;
 }
 
+int accumulate_seqs(argparse::ArgumentParser  * settings,std::vector<std::string> * Store){
+    std::ifstream fileI;
+    std::string ln;
+    std::string inPath = settings->get("--inputs");
+    int i = 0;
+    if(settings->get<bool>("-v")){
+        std::cerr << "we gor here wtf\n";
+    }
+    if(settings->get<bool>("-fna") or inPath.substr(inPath.find_last_of(".") + 1) == "fna"){
+        std::cerr << "Opening: "
+                  << settings->get("--i")
+                  << " as multiply aligned Nucleotide Sequence input!"
+                  << std::endl;
+        fileI.open(settings->get("-i"));
+    }
+    while(getline(fileI, ln)){
+        if(settings->get<bool>("-v")){
+            std::cerr <<  "LN-"<< i << " read line :" << ln;
+        }
+
+
+        i++;
+    }
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
-    //Magic to get file redirection working well
-    std::ofstream file;
+
+    // decs
+    std::ofstream fileO;
     std::ostream *fo;
-    //Parser
+    std::vector<std::string> Seqs;
     auto INPUTS = argparse::ArgumentParser();
+    //Parser
     parse_CLI( &INPUTS );
-    INPUTS.parse_args(argc,argv);
+    try {
+        INPUTS.parse_args(argc, argv);
+    }
+    catch (const std::exception& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << INPUTS;
+        std::exit(1);
+    }
+
+    if(INPUTS.get<bool>("-v")) {
+        std::cerr << "Parsed arguments" << std::endl;
+    }
+    //Magic to get file redirection working well
     if(INPUTS.get("--output") != "stdout"){
-        file.open(INPUTS.get("--output"));
-        fo = &file;
+        fileO.open(INPUTS.get("--output"));
+        fo = &fileO;
     }else{
         fo =  &std::cout ;
     }
-
-
-
-    if(INPUTS.get<bool>("-fna") or INPUTS.get("-i").substr(INPUTS.get("-i").find_last_of(".") + 1) == "fna"){
-        std::cerr << "Opening: "
-        << INPUTS.get("--input")
-        << " as multiply aligned Nucleotide Sequence input!"
-        << std::endl;
+    if(INPUTS.get<bool>("-v")) {
+        std::cerr << INPUTS.get("--output")<<" Opened for output" << std::endl;
     }
+    // actual logic
+    accumulate_seqs(&INPUTS,&Seqs);
+
 
      *fo << "Hello, World!" << std::endl;
     return 0;
