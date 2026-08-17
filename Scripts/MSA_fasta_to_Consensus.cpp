@@ -1,9 +1,28 @@
 #include <iostream>
+#include <cctype>
 //#include <bits/stdc++.h>
 #include <fstream>
 #include <string>
 #include <argparse/argparse.hpp>
-#define DEBUG 6
+#include <climits>
+// DEBUG LVL 0-9
+#define DEBUG 0
+// Nucliotide IUPAC defs
+#define nuc_A 3
+#define nuc_T 5
+#define nuc_C 7
+#define nuc_G 11
+#define nuc_R nuc_A * nuc_G
+#define nuc_Y nuc_C * nuc_T
+#define nuc_K nuc_G * nuc_T
+#define nuc_M nuc_A * nuc_C
+#define nuc_S nuc_C * nuc_G
+#define nuc_W nuc_A * nuc_T
+#define nuc_B nuc_C * nuc_G * nuc_T
+#define nuc_D nuc_A * nuc_G * nuc_T
+#define nuc_H nuc_A * nuc_C * nuc_T
+#define nuc_V nuc_A * nuc_C * nuc_G
+#define nuc_N nuc_A * nuc_C * nuc_T * nuc_G
 // Global vars
 
 
@@ -17,6 +36,54 @@ struct fasta_entry {
         description.clear();
     }
 };
+
+char clean_nucliotide(char c) {
+    char nucliotide = toupper(c);
+    if (nucliotide == 'U') {
+        nucliotide = 'T';
+    }
+    return nucliotide;
+}
+int encode_nucliotide(char c) {
+    if (c == 'A') {
+        return nuc_A;
+    }
+    if (c == 'T') {
+        return nuc_T;
+    }
+    if (c == 'C') {
+        return nuc_C;
+    }
+    if (c == 'G') {
+        return nuc_G;
+    }
+}
+
+
+char decode_nucliotide(const unsigned long long int &Code) {
+    if (Code % nuc_N == 0 ){ return 'N';}
+    if (Code % nuc_V == 0 ){ return 'V';}
+    if (Code % nuc_H == 0 ){ return 'H';}
+    if (Code % nuc_D == 0 ){ return 'D';}
+    if (Code % nuc_B == 0 ){ return 'B';}
+    if (Code % nuc_W == 0 ){ return 'W';}
+    if (Code % nuc_S == 0 ){ return 'S';}
+    if (Code % nuc_M == 0 ){ return 'M';}
+    if (Code % nuc_K == 0 ){ return 'K';}
+    if (Code % nuc_Y == 0 ){ return 'Y';}
+    if (Code % nuc_R == 0 ){ return 'R';}
+    if (Code % nuc_A == 0 ){ return 'A';}
+    if (Code % nuc_T == 0 ){ return 'T';}
+    if (Code % nuc_C == 0 ){ return 'C';}
+    if (Code % nuc_G == 0 ){ return 'G';}
+    std::cerr << "Failed to decode \"" << Code << "\"" << " as a multiple of "
+    << nuc_A << " (A), "
+    << nuc_T << " (T), "
+    << nuc_C << " (C), and "
+    << nuc_G << " (G)"
+    << std::endl;
+    exit(-6);
+}
 
 int parse_CLI(argparse::ArgumentParser *Parser, int &argument_number, const char *const* argument_string) {
     Parser->add_argument("--input","-i")
@@ -148,12 +215,14 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
         if (i==0){
             len_str = Seqs[i].seq.length();
         }else if (len_str != Seqs[i].seq.length()) {
-            std::cerr << "File has mismatched sequence lengths, is this a Alligned file?" << std::endl;
+            std::cerr << "File has mismatched sequence lengths, is this a Aligned file?" << std::endl;
             return -1;
         }
     }
     for (int pos=0;pos<len_str;pos++) {
-        char C = Seqs[0].seq[pos];
+        bool early_end = false;
+        char C = clean_nucliotide(Seqs[0].seq[pos]);
+        unsigned long long nuc_accumulative_encoding = encode_nucliotide(C);
         for (int seq_num = 1; seq_num < Seqs.size(); ++seq_num) {
 #if DEBUG > 5
             std::cerr << "Sequence no. " << seq_num
@@ -162,15 +231,39 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
             << " Expected \"" << C << "\""
             << std::endl;
 #endif
+            if (clean_nucliotide(Seqs[seq_num].seq[pos]) == 'N' || clean_nucliotide(Seqs[seq_num].seq[pos]) == '-') {
+                // if we hit an N or a - we can just skip the rest of the sequences but we need to flag it
+                C = clean_nucliotide(Seqs[seq_num].seq[pos]);
+                break;
+            }
+            /// no abiguity codes is much easier so just do it here
             if (Strict) {
                 // if we are strict any non match goes to n mask
-                if (Seqs[seq_num].seq[pos] != C) {
-                    C = 'n';
+                if (clean_nucliotide(Seqs[seq_num].seq[pos]) == '-') {
+                    C = '-';
+                }else if (clean_nucliotide(Seqs[seq_num].seq[pos]) != C) {
+                    C = 'N';
                 }
+            // This is more difficult so we are multiplying primes here
             } else {
-                //todo put IUPAC ambiguaty here
+                if (nuc_accumulative_encoding < ULONG_LONG_MAX/nuc_G) {
+                    nuc_accumulative_encoding = nuc_accumulative_encoding * encode_nucliotide(clean_nucliotide(Seqs[seq_num].seq[pos]));
+                }else {
+#if DEBUG > 1
+                    std::cerr << "We had too many sequences, compressing" << std::endl;
+#endif
+                    return -4;
+                    int new_nuc_accumulator = 1;
+                    if (nuc_accumulative_encoding % nuc_A == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_A;}
+                    if (nuc_accumulative_encoding % nuc_T == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_T;}
+                    if (nuc_accumulative_encoding % nuc_C == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_C;}
+                    if (nuc_accumulative_encoding % nuc_G == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_G;}
+                    nuc_accumulative_encoding = new_nuc_accumulator * encode_nucliotide(clean_nucliotide(Seqs[seq_num].seq[pos]));
+                    }
             }
-
+        }
+        if (!Strict && !early_end) {
+            C = decode_nucliotide(nuc_accumulative_encoding);
         }
         consensus_entry.seq = consensus_entry.seq + C;
     }
