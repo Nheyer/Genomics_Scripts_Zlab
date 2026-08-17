@@ -1,3 +1,0 @@
-/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles/rebuild_cache.dir
-/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles/edit_cache.dir
-/home/sheepless/CLionProjects/Genomics_Scripts_Zlab/CMakeFiles/MSAtoCONSENSUS.dir
