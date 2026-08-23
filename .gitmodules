@@ -1,0 +1,3 @@
+[submodule "External_tools/ReDtool"]
+	path = External_tools/ReDtool
+	url = https://github.com/CBL205NIPGR/ReDtool
