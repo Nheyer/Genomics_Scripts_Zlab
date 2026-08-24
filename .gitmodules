@@ -1,3 +1,6 @@
 [submodule "External_tools/ReDtool"]
 	path = External_tools/ReDtool
 	url = https://github.com/CBL205NIPGR/ReDtool
+[submodule "External_tools/restriction-enzyme-digest-simulator"]
+	path = External_tools/restriction-enzyme-digest-simulator
+	url = https://github.com/wl5e/restriction-enzyme-digest-simulator
