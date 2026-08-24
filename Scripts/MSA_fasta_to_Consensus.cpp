@@ -12,17 +12,17 @@
 #define nuc_T 5
 #define nuc_C 7
 #define nuc_G 11
-#define nuc_R nuc_A * nuc_G
-#define nuc_Y nuc_C * nuc_T
-#define nuc_K nuc_G * nuc_T
-#define nuc_M nuc_A * nuc_C
-#define nuc_S nuc_C * nuc_G
-#define nuc_W nuc_A * nuc_T
-#define nuc_B nuc_C * nuc_G * nuc_T
-#define nuc_D nuc_A * nuc_G * nuc_T
-#define nuc_H nuc_A * nuc_C * nuc_T
-#define nuc_V nuc_A * nuc_C * nuc_G
-#define nuc_N nuc_A * nuc_C * nuc_T * nuc_G
+#define nuc_R (nuc_A * nuc_G)
+#define nuc_Y (nuc_C * nuc_T)
+#define nuc_K (nuc_G * nuc_T)
+#define nuc_M (nuc_A * nuc_C)
+#define nuc_S (nuc_C * nuc_G)
+#define nuc_W (nuc_A * nuc_T)
+#define nuc_B (nuc_C * nuc_G * nuc_T)
+#define nuc_D (nuc_A * nuc_G * nuc_T)
+#define nuc_H (nuc_A * nuc_C * nuc_T)
+#define nuc_V (nuc_A * nuc_C * nuc_G)
+#define nuc_N (nuc_A * nuc_C * nuc_T * nuc_G)
 // Global vars
 
 
@@ -281,7 +281,7 @@ int main(int argc, char *argv[]) {
 
     // actual logic
     if (int acc_rt = accumulate_seqs_from_fasta(INPUTS.get("-i"),&Seqs); acc_rt  != 0) {return -1;}
-    if (int cons_rt = make_consensus(Seqs,&Consensus_FASTA); cons_rt  != 0) {return -2;}
+    if (int cons_rt = make_consensus(Seqs,&Consensus_FASTA,!INPUTS.get<bool>("-a")); cons_rt  != 0) {return -2;}
     if(int write_rt = write_fasta(INPUTS.get("-o"), Consensus_FASTA); INPUTS.get<bool>("-v") && write_rt==0) {
         std::cerr <<" Consensus FASTA writen to :\t" << INPUTS.get("--output")<< std::endl;
     } else if (!write_rt) {return -3;}
