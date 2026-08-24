@@ -45,18 +45,22 @@ char clean_nucliotide(char c) {
     return nucliotide;
 }
 int encode_nucliotide(char c) {
-    if (c == 'A') {
-        return nuc_A;
-    }
-    if (c == 'T') {
-        return nuc_T;
-    }
-    if (c == 'C') {
-        return nuc_C;
-    }
-    if (c == 'G') {
-        return nuc_G;
-    }
+    if (c == 'A') {return nuc_A;}
+    if (c == 'T') {return nuc_T;}
+    if (c == 'C') {return nuc_C;}
+    if (c == 'G') {return nuc_G;}
+    if (c == 'R') {return nuc_R;}
+    if (c == 'Y') {return nuc_Y;}
+    if (c == 'K') {return nuc_K;}
+    if (c == 'M') {return nuc_M;}
+    if (c == 'S') {return nuc_S;}
+    if (c == 'W') {return nuc_W;}
+    if (c == 'B') {return nuc_B;}
+    if (c == 'D') {return nuc_D;}
+    if (c == 'H') {return nuc_H;}
+    if (c == 'V') {return nuc_V;}
+    if (c == 'N') {return nuc_N;}
+
 }
 
 
@@ -220,7 +224,6 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
         }
     }
     for (int pos=0;pos<len_str;pos++) {
-        bool early_end = false;
         char C = clean_nucliotide(Seqs[0].seq[pos]);
         unsigned long long nuc_accumulative_encoding = encode_nucliotide(C);
         for (int seq_num = 1; seq_num < Seqs.size(); ++seq_num) {
@@ -231,22 +234,20 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
             << " Expected \"" << C << "\""
             << std::endl;
 #endif
-            if (clean_nucliotide(Seqs[seq_num].seq[pos]) == 'N' || clean_nucliotide(Seqs[seq_num].seq[pos]) == '-') {
-                // if we hit an N or a - we can just skip the rest of the sequences but we need to flag it
-                C = clean_nucliotide(Seqs[seq_num].seq[pos]);
+            if (clean_nucliotide(Seqs[seq_num].seq[pos]) == '-') {
+                // if we hit a - we can just skip the rest of the sequences but we need to flag it
+                C = '-';
                 break;
             }
             /// no abiguity codes is much easier so just do it here
             if (Strict) {
                 // if we are strict any non match goes to n mask
-                if (clean_nucliotide(Seqs[seq_num].seq[pos]) == '-') {
-                    C = '-';
-                }else if (clean_nucliotide(Seqs[seq_num].seq[pos]) != C) {
+                if (clean_nucliotide(Seqs[seq_num].seq[pos]) != C) {
                     C = 'N';
                 }
             // This is more difficult so we are multiplying primes here
             } else {
-                if (nuc_accumulative_encoding < ULONG_LONG_MAX/nuc_G) {
+                if (nuc_accumulative_encoding < ULONG_LONG_MAX/nuc_N) {
                     nuc_accumulative_encoding = nuc_accumulative_encoding * encode_nucliotide(clean_nucliotide(Seqs[seq_num].seq[pos]));
                 }else {
 #if DEBUG > 1
@@ -262,7 +263,7 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
                     }
             }
         }
-        if (!Strict && !early_end) {
+        if (!Strict && C != '-') {
             C = decode_nucliotide(nuc_accumulative_encoding);
         }
         consensus_entry.seq = consensus_entry.seq + C;

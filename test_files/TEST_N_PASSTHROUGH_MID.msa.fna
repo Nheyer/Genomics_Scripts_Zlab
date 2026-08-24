@@ -1,0 +1,6 @@
+>Row1 all_A
+AAAAAAAAAAAA
+>Row2 all_G
+GGGGGGGGGGGG
+>Row3 all_N (N flows through and escalates to N, does not halt)
+NNNNNNNNNNNN
