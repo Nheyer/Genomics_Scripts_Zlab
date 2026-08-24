@@ -15,7 +15,7 @@ vendored as submodules.
 
 ## Building
 
-Requires CMake >= 3.14 and a C++17 compiler.
+Requires CMake >= 3.15 and a C++17 compiler.
 
 All dependencies are vendored as submodules, so clone recursively:
 
@@ -40,6 +40,24 @@ cmake --build . --target MSAtoCONSENSUS
 The binary lands in `bin/MSAtoCONSENSUS`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
+
+### Cleaning up
+
+The build happens in source, so it leaves generated files lying around the
+repo. To put the tree back the way you found it:
+
+```bash
+cmake --build . --target clean
+```
+
+That removes the binary plus everything configuring generated —
+`CMakeCache.txt`, `CMakeFiles/`, `Makefile`, `cmake_install.cmake` and
+`compile_commands.json` — so `git status` comes back clean and there is no
+need for a `.gitignore`. Anything else you happen to have parked in `bin/` is
+left alone.
+
+Since this also deletes the `Makefile`, run `cmake .` again before your next
+build.
 
 ## MSAtoCONSENSUS
 
