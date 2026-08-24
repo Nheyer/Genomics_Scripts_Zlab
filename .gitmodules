@@ -4,3 +4,6 @@
 [submodule "External_tools/restriction-enzyme-digest-simulator"]
 	path = External_tools/restriction-enzyme-digest-simulator
 	url = https://github.com/wl5e/restriction-enzyme-digest-simulator
+[submodule "External_tools/argparse"]
+	path = External_tools/argparse
+	url = https://github.com/p-ranav/argparse
