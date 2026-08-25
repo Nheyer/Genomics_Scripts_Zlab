@@ -37,6 +37,15 @@ else()
                    "Run: git submodule update --init --recursive")
 endif()
 
+# --- install -----------------------------------------------------------------
+# Only the tools go out; test_consensus is for us, and cunit is a build
+# dependency that EXCLUDE_FROM_ALL above already keeps out of the install.
+include(GNUInstallDirs)
+install(TARGETS MSAtoCONSENSUS
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES README.md LICENSE
+    DESTINATION ${CMAKE_INSTALL_DOCDIR})
+
 # We build in source, so `clean` also takes out what configuring generated.
 # The binary itself is already handled by the built in clean; we deliberately
 # don't list bin/ so that anything else you left in there survives.
@@ -51,6 +60,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/Testing;\
 ${CMAKE_CURRENT_SOURCE_DIR}/CPackConfig.cmake;\
 ${CMAKE_CURRENT_SOURCE_DIR}/CPackSourceConfig.cmake;\
 ${CMAKE_CURRENT_SOURCE_DIR}/_CPack_Packages;\
+${CMAKE_CURRENT_SOURCE_DIR}/install_manifest.txt;\
 ${CUNIT_DIR}/CMakeFiles;\
 ${CUNIT_DIR}/Makefile;\
 ${CUNIT_DIR}/cmake_install.cmake;\

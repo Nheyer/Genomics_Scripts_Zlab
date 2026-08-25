@@ -42,6 +42,40 @@ The binary lands in `bin/MSAtoCONSENSUS`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
 
+### Installing
+
+```bash
+cmake --install .
+```
+
+(`make install` does the same thing.) That puts `MSAtoCONSENSUS` on your PATH
+and drops the README and LICENSE next to it:
+
+```
+<prefix>/bin/MSAtoCONSENSUS
+<prefix>/share/doc/Genomics_Scripts_Zlab/
+```
+
+The prefix defaults to `/usr/local`, which needs `sudo`. To install somewhere
+you own instead, no `sudo` required:
+
+```bash
+cmake --install . --prefix ~/.local
+```
+
+The test binary and the vendored CUnit library are deliberately not installed —
+they are only there to build and check the tools.
+
+There is no `uninstall` target, but installing writes `install_manifest.txt`
+listing every file it placed, so removing them is:
+
+```bash
+xargs rm -f < install_manifest.txt
+```
+
+The digest simulator is a separate Python package and is not covered by this;
+install it on its own with `pip install External_tools/restriction-enzyme-digest-simulator`.
+
 ### The digest simulator branch
 
 `External_tools/restriction-enzyme-digest-simulator` tracks the
