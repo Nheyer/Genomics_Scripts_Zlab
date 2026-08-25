@@ -6,7 +6,7 @@
 #include <argparse/argparse.hpp>
 #include <climits>
 // DEBUG LVL 0-9
-#define DEBUG 0
+#define DEBUG 9 
 // Nucliotide IUPAC defs
 #define nuc_A 3
 #define nuc_T 5
@@ -253,7 +253,6 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
 #if DEBUG > 1
                     std::cerr << "We had too many sequences, compressing" << std::endl;
 #endif
-                    return -4;
                     int new_nuc_accumulator = 1;
                     if (nuc_accumulative_encoding % nuc_A == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_A;}
                     if (nuc_accumulative_encoding % nuc_T == 0){new_nuc_accumulator = new_nuc_accumulator * nuc_T;}
