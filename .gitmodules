@@ -7,3 +7,8 @@
 [submodule "External_tools/argparse"]
 	path = External_tools/argparse
 	url = https://github.com/p-ranav/argparse
+[submodule "External_tools/cunit"]
+	path = External_tools/cunit
+	url = https://gitlab.com/cunity/cunit.git
+	# cunit gets built in place, so don't report its build output as changes
+	ignore = dirty

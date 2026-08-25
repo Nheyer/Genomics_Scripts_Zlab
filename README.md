@@ -8,7 +8,9 @@ vendored as submodules.
 | Path | What it is |
 |---|---|
 | `Scripts/MSA_fasta_to_Consensus.cpp` | `MSAtoCONSENSUS` — collapses a multiple sequence alignment into a single consensus sequence |
+| `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
+| `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
 | `External_tools/ReDtool` | [CBL205NIPGR/ReDtool](https://github.com/CBL205NIPGR/ReDtool), restriction digest tool |
 | `External_tools/restriction-enzyme-digest-simulator` | [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator) |
 | `test_files/` | Known truth fixtures, see [Test files](#test-files) |
@@ -41,6 +43,31 @@ The binary lands in `bin/MSAtoCONSENSUS`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
 
+### Running the tests
+
+`Tests/test_consensus.cpp` unit tests the consensus code with CUnit:
+
+```bash
+cmake --build . --target test_consensus
+./bin/test_consensus
+```
+
+or through CTest, which is what CI would use:
+
+```bash
+ctest
+```
+
+Either way the runner exits non zero if anything fails. The suite covers
+`clean_nucliotide`, `encode_nucliotide`, `decode_nucliotide` and
+`make_consensus` — ambiguity codes, strict masking, gap handling, and the
+accumulator compression path.
+
+Because the tests build the alignments in memory and call `make_consensus`
+directly, they can cover things a FASTA fixture makes awkward: an alignment
+long enough to force compression is `repeated("G", 1000)` rather than a
+thousand line file.
+
 ### Cleaning up
 
 The build happens in source, so it leaves generated files lying around the
@@ -50,11 +77,12 @@ repo. To put the tree back the way you found it:
 cmake --build . --target clean
 ```
 
-That removes the binary plus everything configuring generated —
-`CMakeCache.txt`, `CMakeFiles/`, `Makefile`, `cmake_install.cmake` and
-`compile_commands.json` — so `git status` comes back clean and there is no
-need for a `.gitignore`. Anything else you happen to have parked in `bin/` is
-left alone.
+That removes the binaries plus everything configuring generated —
+`CMakeCache.txt`, `CMakeFiles/`, `Makefile`, `cmake_install.cmake`,
+`compile_commands.json`, the CTest leftovers, and what building CUnit dropped
+inside `External_tools/cunit` — so `git status` comes back clean and there is
+no need for a `.gitignore`. Anything else you happen to have parked in `bin/`
+is left alone.
 
 Since this also deletes the `Makefile`, run `cmake .` again before your next
 build.
@@ -140,7 +168,12 @@ so the whole consensus should be that one letter repeated.
 The other fixtures are real sequence: `TEST.fna` (single CYCS mRNA),
 `TEST_IDNT.fna` (that same sequence four times over, so the consensus should
 come back as the input sequence unchanged — output is rewrapped at 80 columns),
-`TEST.faa` / `NP_061820.1` (protein).
+`Sheep_products.fna` (1000 sequences, long enough that the accumulator has to
+compress), `TEST.faa` / `NP_061820.1` (protein).
+
+These fixtures exercise the tool end to end through its CLI. The finer grained
+checks on the individual functions live in the CUnit suite, see
+[Running the tests](#running-the-tests).
 
 Check everything at once:
 
