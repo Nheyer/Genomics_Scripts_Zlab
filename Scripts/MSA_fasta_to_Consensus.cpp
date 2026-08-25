@@ -6,7 +6,7 @@
 #include <argparse/argparse.hpp>
 #include <climits>
 // DEBUG LVL 0-9
-#define DEBUG 9 
+#define DEBUG 0 
 // Nucliotide IUPAC defs
 #define nuc_A 3
 #define nuc_T 5
