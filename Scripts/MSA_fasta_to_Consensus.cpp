@@ -225,6 +225,12 @@ int make_consensus(std::vector<fasta_entry>  Seqs,std::vector<fasta_entry> * Out
     }
     for (int pos=0;pos<len_str;pos++) {
         char C = clean_nucliotide(Seqs[0].seq[pos]);
+        // the loop below only checks the other sequences, so catch a gap in the
+        // first one here, otherwise strict mode masks it to N instead
+        if (C == '-') {
+            consensus_entry.seq = consensus_entry.seq + '-';
+            continue;
+        }
         unsigned long long nuc_accumulative_encoding = encode_nucliotide(C);
         for (int seq_num = 1; seq_num < Seqs.size(); ++seq_num) {
 #if DEBUG > 5
