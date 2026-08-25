@@ -11,8 +11,7 @@ vendored as submodules.
 | `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
 | `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
-| `External_tools/ReDtool` | [CBL205NIPGR/ReDtool](https://github.com/CBL205NIPGR/ReDtool), restriction digest tool |
-| `External_tools/restriction-enzyme-digest-simulator` | [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator) |
+| `External_tools/restriction-enzyme-digest-simulator` | [our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator) of [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator), restriction digest simulator |
 | `test_files/` | Known truth fixtures, see [Test files](#test-files) |
 
 ## Building
