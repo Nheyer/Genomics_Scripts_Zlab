@@ -11,7 +11,7 @@ vendored as submodules.
 | `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
 | `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
-| `External_tools/restriction-enzyme-digest-simulator` | [our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator) of [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator), restriction digest simulator |
+| `External_tools/restriction-enzyme-digest-simulator` | [our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator) of [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator), restriction digest simulator — temporarily on a branch, see [below](#the-digest-simulator-branch) |
 | `test_files/` | Known truth fixtures, see [Test files](#test-files) |
 
 ## Building
@@ -41,6 +41,25 @@ cmake --build . --target MSAtoCONSENSUS
 The binary lands in `bin/MSAtoCONSENSUS`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
+
+### The digest simulator branch
+
+`External_tools/restriction-enzyme-digest-simulator` tracks the
+`feat/pip-installable` branch of our fork rather than `master`, because the
+work on it is still sitting in
+[upstream PR #3](https://github.com/wl5e/restriction-enzyme-digest-simulator/pull/3).
+That branch also carries the NEB recognition string work from
+[PR #2](https://github.com/wl5e/restriction-enzyme-digest-simulator/pull/2).
+
+A normal `--recurse-submodules` clone gets the right commit without you doing
+anything. To pull later commits from that branch:
+
+```bash
+git submodule update --remote External_tools/restriction-enzyme-digest-simulator
+```
+
+Once the PRs land upstream this should go back to tracking `master`: drop the
+`branch =` line for it in `.gitmodules`.
 
 ### Running the tests
 
