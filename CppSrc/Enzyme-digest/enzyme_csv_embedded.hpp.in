@@ -1,0 +1,12 @@
+// Generated at configure time by CMake from Data/restriction_enzymes.csv.
+// Do not edit, and do not commit the generated copy - edit the CSV instead.
+//
+// The CSV is embedded verbatim rather than re-encoded as an enzyme table, so
+// there is exactly one copy of the data and the built-in table is parsed by
+// the same loader that --enzyme-db uses on a file.
+#ifndef ENZYME_CSV_EMBEDDED_HPP
+#define ENZYME_CSV_EMBEDDED_HPP
+
+inline constexpr char EMBEDDED_ENZYME_CSV[] = R"ENZYMECSV(@ENZYME_CSV_CONTENTS@)ENZYMECSV";
+
+#endif  // ENZYME_CSV_EMBEDDED_HPP

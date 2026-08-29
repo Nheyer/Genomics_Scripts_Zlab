@@ -23,6 +23,13 @@
 #define nuc_H (nuc_A * nuc_C * nuc_T)
 #define nuc_V (nuc_A * nuc_C * nuc_G)
 #define nuc_N (nuc_A * nuc_C * nuc_T * nuc_G)
+// Return codes. main hands these straight back to the shell, which cannot tell
+// the negative ones apart - they all surface as the same number - so what they
+// actually mean is decoded by describe_return() under DEBUG > 1.
+#define rt_OK 0
+#define rt_READ_FAILED (-1)
+#define rt_CONSENSUS_FAILED (-2)
+#define rt_WRITE_FAILED (-3)
 // Global vars
 
 
@@ -87,6 +94,16 @@ char decode_nucliotide(const unsigned long long int &Code) {
     << nuc_G << " (G)"
     << std::endl;
     exit(-6);
+}
+
+// Which stage gave up, in words. Only DEBUG > 1 asks, but keeping it beside the
+// codes means a new one cannot be added without a description.
+const char *describe_return(const int &Code) {
+    if (Code == rt_OK) { return "wrote the consensus"; }
+    if (Code == rt_READ_FAILED) { return "could not read the input alignment"; }
+    if (Code == rt_CONSENSUS_FAILED) { return "could not build a consensus from it"; }
+    if (Code == rt_WRITE_FAILED) { return "could not write the consensus out"; }
+    return "unknown return code";
 }
 
 int parse_CLI(argparse::ArgumentParser *Parser, int &argument_number, const char *const* argument_string) {
@@ -186,6 +203,12 @@ int write_fasta(const std::string& pathO,std::vector<fasta_entry> &SEQ) {
     std::ostream *fo;
     if(pathO != "stdout"){
         fileO.open(pathO);
+        // A path we cannot open is the one failure this can actually hit, and
+        // writing into a closed stream would otherwise look like success.
+        if(!fileO.is_open()){
+            std::cerr << "Could not open " << pathO << " to write to, is the directory there and writable?" << std::endl;
+            return -1;
+        }
         fo = &fileO;
     }else{
         fo =  &std::cout ;
@@ -285,11 +308,24 @@ int main(int argc, char *argv[]) {
     //Parser
     parse_CLI( &INPUTS , argc, argv);
 
-    // actual logic
-    if (int acc_rt = accumulate_seqs_from_fasta(INPUTS.get("-i"),&Seqs); acc_rt  != 0) {return -1;}
-    if (int cons_rt = make_consensus(Seqs,&Consensus_FASTA,!INPUTS.get<bool>("-a")); cons_rt  != 0) {return -2;}
-    if(int write_rt = write_fasta(INPUTS.get("-o"), Consensus_FASTA); INPUTS.get<bool>("-v") && write_rt==0) {
+    // actual logic. Each stage only runs if the one before it worked, and they
+    // all land on the single exit below rather than returning where they fail,
+    // so there is one place that decides what we hand back.
+    // Whether the write failed and whether we are being chatty are two separate
+    // questions: testing them together made a quiet successful run take the
+    // error branch and exit non zero.
+    int rt = rt_OK;
+    if (accumulate_seqs_from_fasta(INPUTS.get("-i"),&Seqs) != 0) {
+        rt = rt_READ_FAILED;
+    } else if (make_consensus(Seqs,&Consensus_FASTA,!INPUTS.get<bool>("-a")) != 0) {
+        rt = rt_CONSENSUS_FAILED;
+    } else if (write_fasta(INPUTS.get("-o"), Consensus_FASTA) != 0) {
+        rt = rt_WRITE_FAILED;
+    } else if (INPUTS.get<bool>("-v")) {
         std::cerr <<" Consensus FASTA writen to :\t" << INPUTS.get("--output")<< std::endl;
-    } else if (!write_rt) {return -3;}
-    return 0;
+    }
+#if DEBUG > 1
+    std::cerr << "Returning " << rt << ": " << describe_return(rt) << std::endl;
+#endif
+    return rt;
 }

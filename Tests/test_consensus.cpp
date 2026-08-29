@@ -2,8 +2,8 @@
 //
 // The program is one translation unit that owns its own main(), so we rename
 // that main out of the way and pull the whole file in. The tests then call the
-// real functions directly, and Scripts/MSA_fasta_to_Consensus.cpp needs no
-// changes to be testable.
+// real functions directly, and CppSrc/MSAtoCONSENSUS/MSA_fasta_to_Consensus.cpp
+// needs no changes to be testable.
 #define main disabled_main
 #include "MSA_fasta_to_Consensus.cpp"
 #undef main
