@@ -1,7 +1,3 @@
-[submodule "External_tools/restriction-enzyme-digest-simulator"]
-	path = External_tools/restriction-enzyme-digest-simulator
-	url = https://github.com/Nheyer/restriction-enzyme-digest-simulator
-	branch = feat/pip-installable
 [submodule "External_tools/argparse"]
 	path = External_tools/argparse
 	url = https://github.com/p-ranav/argparse

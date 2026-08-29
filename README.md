@@ -18,7 +18,6 @@ University, plus a few external tools vendored as submodules.
 | `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
 | `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
-| `External_tools/restriction-enzyme-digest-simulator` | [our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator) of [wl5e/restriction-enzyme-digest-simulator](https://github.com/wl5e/restriction-enzyme-digest-simulator), the Python original `Enzyme-digest` was ported from, see [below](#the-digest-simulator) |
 | `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
 
 ## Building
@@ -91,46 +90,31 @@ xargs rm -f < install_manifest.txt
 ```
 
 The digest simulator no longer needs installing separately: `Enzyme-digest` is a
-C++ port of it and installs with everything else. The Python original is still
-vendored as a submodule, but only as a reference and a differential test oracle
-— see [The digest simulator](#the-digest-simulator).
+C++ port of it and installs with everything else — see
+[The digest simulator](#the-digest-simulator).
 
 ### The digest simulator
 
-`Enzyme-digest` is a C++ port of
-[our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator) of the
-Python digest simulator, taken from commit `82994c5` on `main`. See
-[License](#license) for the attribution that carries with it.
+`Enzyme-digest` is a C++ port of the Python restriction digest simulator, taken
+from commit `82994c5` on `main` of
+[our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator).
+Upstream (`wl5e/restriction-enzyme-digest-simulator`) is archived and read-only,
+so the fork's `main` is where that project's work actually lives.
 
-The submodule is kept as a reference, and the two implementations share a CLI
-surface precisely so they can be run against the same FASTA and diffed. Nothing
-in the build depends on it.
+The Python is **not** vendored here. It was carried as a submodule while the
+port was being written and has been removed now that the port stands on its
+own — `External_tools/` holds only the two build dependencies. Record the
+commit above rather than the working copy: that hash is what the port
+corresponds to, and it is the provenance behind the attribution in
+[License](#license). Removing the copy changes nothing about that obligation.
 
-The one deliberate difference is the program name: ours reports itself as
+The two implementations still share a CLI surface, so a differential run is
+possible by cloning the Python separately and feeding both the same FASTA. The
+one deliberate difference is the program name: ours reports itself as
 `Enzyme-digest`, matching the binary, where the Python calls itself
 `enzyme_digest.py`. That shows up in the usage line and in the
 required-argument error, so those two do not compare byte for byte. Everything
 else does, including the digest output and the other error messages.
-
-**The recorded submodule commit is not the code that was ported**, so a
-differential run against it as checked out will mismatch wholesale:
-
-- `.gitmodules` pins it to `feat/pip-installable`, **a branch that no longer
-  exists on the fork**, and the recorded commit `9b88a60` is 5 commits behind
-  `main` — it predates the ambiguity modes, the CSV enzyme table and the
-  origin-spanning circular fix. `git submodule update --remote` fails until that
-  `branch =` line says `main`.
-- To make the submodule usable as an oracle, point it at what the port was
-  taken from:
-
-  ```bash
-  cd External_tools/restriction-enzyme-digest-simulator && git checkout 82994c5
-  # and change `branch = feat/pip-installable` to `branch = main` in .gitmodules
-  ```
-
-Upstream (`wl5e/restriction-enzyme-digest-simulator`) is archived and read-only,
-so PRs #2 and #3 can never merge there. The fork's `main` is where the work
-actually lives.
 
 ### Running the tests
 
