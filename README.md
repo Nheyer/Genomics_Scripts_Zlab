@@ -1,30 +1,12 @@
 # Genomics_Scripts_Zlab
 
 Small genomics command line tools used in the Zabel Lab at Colorado State
-University, plus a few external tools vendored as submodules.
+University.
 
-## Contents
+## Install
 
-| Path | What it is |
-|---|---|
-| `CppSrc/` | C++ source only, one directory per program |
-| `CppSrc/MSA-to-consensus/MSA_fasta_to_Consensus.cpp` | `MSA-to-consensus` — collapses a multiple sequence alignment into a single consensus sequence |
-| `CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` | `Enzyme-digest` — in silico restriction digest, fragment sizes and an ASCII gel |
-| `CppSrc/Enzyme-digest/enzyme_data.hpp` | IUPAC codes, complement table and ladder — lookup tables only, no logic |
-| `CppSrc/Enzyme-digest/enzyme_csv_embedded.hpp.in` | Template CMake fills with the enzyme CSV at configure time; required to build |
-| `Data/restriction_enzymes.csv` | The enzyme database, in NEB `^`/`_` notation. **The source of truth** — see [Enzyme data](#enzyme-data) |
-| `LICENSE.restriction-digest` | MIT notice for the code `Enzyme-digest` was ported from, see [License](#license) |
-| `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
-| `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
-| `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
-| `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
-| `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
-
-## Building
-
-Requires CMake >= 3.15 and a C++17 compiler.
-
-All dependencies are vendored as submodules, so clone recursively:
+Requires CMake >= 3.15 and a C++17 compiler. The two build dependencies are
+vendored as submodules, so clone recursively:
 
 ```bash
 git clone --recurse-submodules https://github.com/Nheyer/Genomics_Scripts_Zlab.git
@@ -44,33 +26,28 @@ cmake .
 cmake --build .
 ```
 
-The binaries land in `bin/MSA-to-consensus` and `bin/Enzyme-digest`; build one on
-its own by naming it as the `--target`. The build uses the vendored
+The binaries land in `bin/MSA-to-consensus` and `bin/Enzyme-digest`; build one
+on its own by naming it as the `--target`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
 
-Configuring also embeds `Data/restriction_enzymes.csv` into a generated
-header under `generated/`, which is why `Enzyme-digest` needs no data file at
-runtime. See [Enzyme data](#enzyme-data).
+Configuring also embeds `Data/restriction_enzymes.csv` into a generated header
+under `generated/`, which is why `Enzyme-digest` needs no data file at runtime.
+See [Enzyme data](#enzyme-data).
 
-### Installing
+To put the tools on your PATH:
 
 ```bash
 cmake --install .
 ```
 
-(`make install` does the same thing.) That puts both tools on your PATH and
-drops the README and the licence files next to them:
+(`make install` does the same thing.) That drops the binaries and the docs:
 
 ```
 <prefix>/bin/MSA-to-consensus
 <prefix>/bin/Enzyme-digest
 <prefix>/share/doc/Genomics_Scripts_Zlab/
 ```
-
-The installed docs include `LICENSE.restriction-digest`. That notice has to
-travel with the binary, so do not drop it from the install list — see
-[License](#license).
 
 The prefix defaults to `/usr/local`, which needs `sudo`. To install somewhere
 you own instead, no `sudo` required:
@@ -79,8 +56,10 @@ you own instead, no `sudo` required:
 cmake --install . --prefix ~/.local
 ```
 
-The test binary and the vendored CUnit library are deliberately not installed —
-they are only there to build and check the tools.
+The installed docs include `LICENSE.restriction-digest`. That notice has to
+travel with the binary, so do not drop it from the install list — see
+[License](#license). The test binaries and the vendored CUnit library are
+deliberately not installed; they are only there to build and check the tools.
 
 There is no `uninstall` target, but installing writes `install_manifest.txt`
 listing every file it placed, so removing them is:
@@ -89,95 +68,15 @@ listing every file it placed, so removing them is:
 xargs rm -f < install_manifest.txt
 ```
 
-The digest simulator no longer needs installing separately: `Enzyme-digest` is a
-C++ port of it and installs with everything else — see
-[The digest simulator](#the-digest-simulator).
+## The tools
 
-### The digest simulator
+| Tool | What it does |
+|---|---|
+| [`MSA-to-consensus`](#msa-to-consensus) | Collapses a multiple sequence alignment into one consensus sequence, masking disagreements or coding them as IUPAC ambiguity |
+| [`Enzyme-digest`](#enzyme-digest) | In silico restriction digest — cut sites, fragment sizes and an ASCII gel, over a 262 enzyme database |
 
-`Enzyme-digest` is a C++ port of the Python restriction digest simulator, taken
-from commit `82994c5` on `main` of
-[our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator).
-Upstream (`wl5e/restriction-enzyme-digest-simulator`) is archived and read-only,
-so the fork's `main` is where that project's work actually lives.
-
-The Python is **not** vendored here. It was carried as a submodule while the
-port was being written and has been removed now that the port stands on its
-own — `External_tools/` holds only the two build dependencies. Record the
-commit above rather than the working copy: that hash is what the port
-corresponds to, and it is the provenance behind the attribution in
-[License](#license). Removing the copy changes nothing about that obligation.
-
-The two implementations still share a CLI surface, so a differential run is
-possible by cloning the Python separately and feeding both the same FASTA. The
-one deliberate difference is the program name: ours reports itself as
-`Enzyme-digest`, matching the binary, where the Python calls itself
-`enzyme_digest.py`. That shows up in the usage line and in the
-required-argument error, so those two do not compare byte for byte. Everything
-else does, including the digest output and the other error messages.
-
-### Running the tests
-
-`Tests/` unit tests both tools with CUnit:
-
-```bash
-cmake --build . --target test_consensus test_digest
-./bin/test_consensus
-./bin/test_digest
-```
-
-or through CTest, which is what CI would use:
-
-```bash
-ctest
-```
-
-Either way the runner exits non zero if anything fails. The consensus suite
-covers `clean_nucliotide`, `encode_nucliotide`, `decode_nucliotide` and
-`make_consensus` — ambiguity codes, strict masking, gap handling, and the
-accumulator compression path.
-
-Because the tests build the alignments in memory and call `make_consensus`
-directly, they can cover things a FASTA fixture makes awkward: an alignment
-long enough to force compression is `repeated("G", 1000)` rather than a
-thousand line file.
-
-The digest suite leads with invariants, which is what the upstream ROADMAP asks
-of a port — they are language independent and they are what catches a sign
-error or an off-by-one in the cut coordinate frame:
-
-- **Fragments sum to the sequence length**, for all 262 enzymes, linear and
-  circular, on concrete and on ambiguous sequence. Whatever the cuts are, the
-  pieces have to add back up to the molecule.
-- **The 15-code definite-matching table**, written out by hand rather than
-  derived from `IUPAC_BASES`, so changing the matching rule fails here instead
-  of being mirrored by a re-derivation of itself.
-- **Overhang mirroring** for palindromic enzymes that cut inside their own site,
-  which is forced by the symmetry of the molecule and so is independent of
-  REBASE as well as of the code.
-
-Beyond that it covers both NEB notations, the CSV `^`/`_` form, both strands,
-overlapping sites, origin-spanning circular sites, gap stripping, and the
-`definite`/`possible` split.
-
-### Cleaning up
-
-The build happens in source, so it leaves generated files lying around the
-repo. To put the tree back the way you found it:
-
-```bash
-cmake --build . --target clean
-```
-
-That removes the binaries plus everything configuring generated —
-`CMakeCache.txt`, `CMakeFiles/`, `Makefile`, `cmake_install.cmake`,
-`compile_commands.json`, the CTest leftovers, and what building CUnit dropped
-inside `External_tools/cunit` — so `git status` comes back clean and there is
-no need for a `.gitignore`. Anything else you happen to have parked in `bin/`
-is left alone.
-
-Since this also deletes the `Makefile`, run `cmake .` again before your next
-build.
+Both read FASTA and write their result to stdout (or to a file), with progress
+and errors on stderr, so redirecting stdout captures just the output.
 
 ## MSA-to-consensus
 
@@ -362,6 +261,111 @@ Carried over from the Python original unchanged:
 - Methylation sensitivity, star activity, and enzymes needing two sites are not
   modelled.
 
+## Repository layout
+
+| Path | What it is |
+|---|---|
+| `CppSrc/` | C++ source only, one directory per program |
+| `CppSrc/MSA-to-consensus/MSA_fasta_to_Consensus.cpp` | `MSA-to-consensus` |
+| `CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` | `Enzyme-digest` |
+| `CppSrc/Enzyme-digest/enzyme_data.hpp` | IUPAC codes, complement table and ladder — lookup tables only, no logic |
+| `CppSrc/Enzyme-digest/enzyme_csv_embedded.hpp.in` | Template CMake fills with the enzyme CSV at configure time; required to build |
+| `Data/restriction_enzymes.csv` | The enzyme database, in NEB `^`/`_` notation. **The source of truth** — see [Enzyme data](#enzyme-data) |
+| `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
+| `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
+| `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
+| `LICENSE.restriction-digest` | MIT notice for the code `Enzyme-digest` was ported from, see [License](#license) |
+| `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
+| `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
+
+## Development
+
+### Running the tests
+
+`Tests/` unit tests both tools with CUnit:
+
+```bash
+cmake --build . --target test_consensus test_digest
+./bin/test_consensus
+./bin/test_digest
+```
+
+or through CTest, which is what CI would use:
+
+```bash
+ctest
+```
+
+Either way the runner exits non zero if anything fails. The consensus suite
+covers `clean_nucliotide`, `encode_nucliotide`, `decode_nucliotide` and
+`make_consensus` — ambiguity codes, strict masking, gap handling, and the
+accumulator compression path.
+
+Because the tests build the alignments in memory and call `make_consensus`
+directly, they can cover things a FASTA fixture makes awkward: an alignment
+long enough to force compression is `repeated("G", 1000)` rather than a
+thousand line file.
+
+The digest suite leads with invariants, which is what the upstream ROADMAP asks
+of a port — they are language independent and they are what catches a sign
+error or an off-by-one in the cut coordinate frame:
+
+- **Fragments sum to the sequence length**, for all 262 enzymes, linear and
+  circular, on concrete and on ambiguous sequence. Whatever the cuts are, the
+  pieces have to add back up to the molecule.
+- **The 15-code definite-matching table**, written out by hand rather than
+  derived from `IUPAC_BASES`, so changing the matching rule fails here instead
+  of being mirrored by a re-derivation of itself.
+- **Overhang mirroring** for palindromic enzymes that cut inside their own site,
+  which is forced by the symmetry of the molecule and so is independent of
+  REBASE as well as of the code.
+
+Beyond that it covers both NEB notations, the CSV `^`/`_` form, both strands,
+overlapping sites, origin-spanning circular sites, gap stripping, and the
+`definite`/`possible` split.
+
+### The digest simulator
+
+`Enzyme-digest` is a C++ port of the Python restriction digest simulator, taken
+from commit `82994c5` on `main` of
+[our fork](https://github.com/Nheyer/restriction-enzyme-digest-simulator).
+Upstream (`wl5e/restriction-enzyme-digest-simulator`) is archived and read-only,
+so the fork's `main` is where that project's work actually lives.
+
+The Python is **not** vendored here. It was carried as a submodule while the
+port was being written and has been removed now that the port stands on its
+own — `External_tools/` holds only the two build dependencies. Record the
+commit above rather than the working copy: that hash is what the port
+corresponds to, and it is the provenance behind the attribution in
+[License](#license). Removing the copy changes nothing about that obligation.
+
+The two implementations still share a CLI surface, so a differential run is
+possible by cloning the Python separately and feeding both the same FASTA. The
+one deliberate difference is the program name: ours reports itself as
+`Enzyme-digest`, matching the binary, where the Python calls itself
+`enzyme_digest.py`. That shows up in the usage line and in the
+required-argument error, so those two do not compare byte for byte. Everything
+else does, including the digest output and the other error messages.
+
+### Cleaning up
+
+The build happens in source, so it leaves generated files lying around the
+repo. To put the tree back the way you found it:
+
+```bash
+cmake --build . --target clean
+```
+
+That removes the binaries plus everything configuring generated —
+`CMakeCache.txt`, `CMakeFiles/`, `Makefile`, `cmake_install.cmake`,
+`compile_commands.json`, the CTest leftovers, and what building CUnit dropped
+inside `External_tools/cunit` — so `git status` comes back clean and there is
+no need for a `.gitignore`. Anything else you happen to have parked in `bin/`
+is left alone.
+
+Since this also deletes the `Makefile`, run `cmake .` again before your next
+build.
+
 ## Test files
 
 `Data/test_files/` holds known truth fixtures — the expected consensus is obvious by
@@ -415,16 +419,15 @@ it. There is no second licence to choose from and no part of the repository is
 offered under different terms.
 
 Copyright © 2026 The Zabel Lab at Colorado State University, for the work in
-this repository — including the C++ port described below, which is a substantial
-body of original work in its own right even though it is a derivative of the
-code it was ported from.
+this repository — including the C++ port of the digest simulator, which is a
+substantial body of original work in its own right even though it is a
+derivative of the code it was ported from.
 
 ### Third party attribution
 
 `CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` and
-`Data/restriction_enzymes.csv`
-are derived from the Python restriction digest simulator, © Collins Amatu
-Gorgerat, which is MIT licensed —
+`Data/restriction_enzymes.csv` are derived from the Python restriction digest
+simulator, © Collins Amatu Gorgerat, which is MIT licensed —
 [LICENSE.restriction-digest](LICENSE.restriction-digest).
 
 This is attribution, not an alternative licence. MIT is GPL compatible, which is
