@@ -329,8 +329,9 @@ the lambda coordinates NEB gives for them (30,006–31,352).
 
 | Flag | Meaning |
 |---|---|
-| `-F`, `--forward` | Forward primer, 5'→3' (required) |
-| `-R`, `--reverse` | Reverse primer, 5'→3' **as ordered** — not the top strand sequence (required) |
+| `-F`, `--forward` | Forward primer, 5'→3' (required, unless `--primers`) |
+| `-R`, `--reverse` | Reverse primer, 5'→3' **as ordered** — not the top strand sequence (required, unless `--primers`) |
+| `-P`, `--primers` | Both primers from a FASTA instead of `-F`/`-R` — see below |
 | `-p`, `--polymerase` | `Q5`, `Taq` or `Phusion`, case insensitively (required) |
 | `-f`, `--fasta` | Template FASTA; both primers are located on it to get the amplicon length |
 | `-l`, `--amplicon-length` | Amplicon length in bp, instead of `--fasta` |
@@ -339,6 +340,16 @@ the lambda coordinates NEB gives for them (30,006–31,352).
 | `--simple-template` | Plasmid, lambda or *E. coli* template: use the datasheet's faster extension rate |
 | `--polymerase-db` | Read polymerases from a CSV instead of the built in table |
 | `--list-polymerases` | List the known polymerases and exit |
+
+`--primers` takes a FASTA holding exactly two records: the forward primer first,
+the reverse second, both 5'→3' as ordered. Order is the only thing that says
+which is which, so any other count is an error. Names are free, sequences may be
+lower case or wrapped, and it cannot be combined with `-F`/`-R`:
+
+```bash
+./bin/PCR-protocol -p Q5 -P Data/test_files/TEST_PCR_PRIMERS.fna \
+    -f Data/test_files/TEST_PCR_LAMBDA.fna
+```
 
 Exactly one of `--fasta` and `--amplicon-length` is needed — extension time
 depends on the product length, and two primers alone do not give it.
@@ -588,6 +599,8 @@ compress), `TEST.faa` / `NP_061820.1` (protein).
 stretch holding both of NEB's lambda control amplicons from the Phusion manual:
 the 1.3 kb pair (30,006–31,352, 1347 bp) and the 10 kb pair (30,011–40,043,
 10,033 bp). Position `p` in the file is genome position `p + 29,950`.
+`TEST_PCR_PRIMERS.fna` is the 1.3 kb pair as a primer FASTA, the reverse primer
+lower case and wrapped over two lines to exercise the parsing.
 
 These fixtures exercise the tool end to end through its CLI. The finer grained
 checks on the individual functions live in the CUnit suite, see

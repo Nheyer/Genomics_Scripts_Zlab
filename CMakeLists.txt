@@ -113,7 +113,8 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
         ${PCR_DIR})
     target_link_libraries(test_pcr PRIVATE cunit primer3_thal)
     target_compile_definitions(test_pcr PRIVATE
-        PCR_TEST_FIXTURE="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna")
+        PCR_TEST_FIXTURE="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna"
+        PCR_TEST_PRIMERS="${DATA_DIR}/test_files/TEST_PCR_PRIMERS.fna")
     add_test(NAME pcr COMMAND test_pcr)
 else()
     message(STATUS "cunit submodule missing, skipping tests. "

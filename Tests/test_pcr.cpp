@@ -25,6 +25,9 @@
 #include <string>
 #include <vector>
 
+#ifndef PCR_TEST_PRIMERS
+#error "PCR_TEST_PRIMERS must point at Data/test_files/TEST_PCR_PRIMERS.fna"
+#endif
 #ifndef PCR_TEST_FIXTURE
 #error "PCR_TEST_FIXTURE must point at Data/test_files/TEST_PCR_LAMBDA.fna"
 #endif
@@ -369,6 +372,34 @@ static void test_repeated_site_gives_two_products(void) {
     CU_ASSERT_TRUE(find_products(twice, NEB_10KB_P1, NEB_10KB_P2).size() >= 2);
 }
 
+// ----------------------------------------------------------- primer FASTA ---
+
+// The fixture holds NEB's 1.3 kb pair, the reverse one lower case and wrapped
+// over two lines, and must read back as the same two primers in order.
+static void test_primer_fasta_reads_forward_then_reverse(void) {
+    std::pair<std::string, std::string> pair =
+        primers_from_records(parse_fasta(PCR_TEST_PRIMERS), "t.fna");
+    CU_ASSERT_EQUAL(pair.first, std::string(NEB_1_3KB_P1));
+    CU_ASSERT_EQUAL(pair.second, std::string(NEB_1_3KB_P2));
+    // And they make NEB's product.
+    std::vector<Product> products = find_products(lambda_fixture(), pair.first, pair.second);
+    CU_ASSERT_EQUAL_FATAL(products.size(), 1u);
+    CU_ASSERT_EQUAL(products[0].length(), 1347);
+}
+
+// Order is all that says which primer is which, so anything but two is refused.
+static void test_primer_fasta_needs_exactly_two(void) {
+    std::vector<std::pair<std::string, std::string> > one = {{"a", NEB_1_3KB_P1}};
+    std::vector<std::pair<std::string, std::string> > three = {
+        {"a", NEB_1_3KB_P1}, {"b", NEB_1_3KB_P2}, {"c", NEB_10KB_P1}};
+    CU_ASSERT_TRUE(throws([&] { primers_from_records(one, "t.fna"); }));
+    CU_ASSERT_TRUE(throws([&] { primers_from_records(three, "t.fna"); }));
+    // Same validation as -F/-R.
+    std::vector<std::pair<std::string, std::string> > degenerate = {
+        {"a", NEB_1_3KB_P1}, {"b", "GATGRCGC"}};
+    CU_ASSERT_TRUE(throws([&] { primers_from_records(degenerate, "t.fna"); }));
+}
+
 // ------------------------------------------------------------ polymerases ---
 
 static void test_builtin_table(void) {
@@ -488,6 +519,10 @@ int main(void) {
             {"reverse complemented template", test_reverse_complemented_template},
             {"primer not on template", test_primer_not_on_template},
             {"repeated site gives two products", test_repeated_site_gives_two_products},
+        }},
+        {"primer FASTA", {
+            {"reads forward then reverse", test_primer_fasta_reads_forward_then_reverse},
+            {"needs exactly two", test_primer_fasta_needs_exactly_two},
         }},
         {"polymerase table", {
             {"built in table", test_builtin_table},

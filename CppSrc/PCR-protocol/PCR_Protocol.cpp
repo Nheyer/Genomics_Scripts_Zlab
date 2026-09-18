@@ -36,6 +36,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -542,6 +543,21 @@ static std::vector<std::pair<std::string, std::string> > parse_fasta(const std::
     return records;
 }
 
+// The pair from a primer FASTA: exactly two records, forward first, reverse
+// second, both 5'->3' as ordered. Order is the only thing that says which is
+// which, so any other count is refused rather than guessed at.
+static std::pair<std::string, std::string> primers_from_records(
+        const std::vector<std::pair<std::string, std::string> > &records,
+        const std::string &path) {
+    if (records.size() != 2) {
+        throw std::invalid_argument(
+            path + " holds " + std::to_string(records.size()) + " sequence(s); a primer FASTA "
+            "needs exactly two, the forward primer first and the reverse second");
+    }
+    return std::make_pair(validate_primer(records[0].second, "Forward"),
+                          validate_primer(records[1].second, "Reverse"));
+}
+
 static std::vector<size_t> find_all(const std::string &haystack, const std::string &needle) {
     std::vector<size_t> hits;
     for (size_t at = haystack.find(needle); at != std::string::npos;
@@ -733,6 +749,10 @@ int main(int argc, char *argv[]) {
 
     program.add_argument("--forward", "-F").help("Forward primer, 5'->3'");
     program.add_argument("--reverse", "-R").help("Reverse primer, 5'->3' as ordered");
+    program.add_argument("--primers", "-P")
+        .metavar("FASTA")
+        .help("Both primers from a FASTA instead of -F/-R: exactly two records, forward first, "
+              "reverse second, each 5'->3' as ordered");
     program.add_argument("--polymerase", "-p")
         .help("Polymerase by name, see --list-polymerases (case-insensitive)");
     program.add_argument("--fasta", "-f")
@@ -783,11 +803,19 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    if (!program.is_used("--forward") || !program.is_used("--reverse") ||
-        !program.is_used("--polymerase")) {
+    const bool primers_from_fasta = program.is_used("--primers");
+    const bool primers_given = program.is_used("--forward") && program.is_used("--reverse");
+    if (!program.is_used("--polymerase") || (!primers_from_fasta && !primers_given)) {
         std::cerr << program;
         std::cerr << "PCR-protocol: error: the following arguments are required: "
-                  << "--forward/-F, --reverse/-R, --polymerase/-p" << std::endl;
+                  << "--forward/-F and --reverse/-R, or --primers/-P; and --polymerase/-p"
+                  << std::endl;
+        return 2;
+    }
+    if (primers_from_fasta &&
+        (program.is_used("--forward") || program.is_used("--reverse"))) {
+        std::cerr << "PCR-protocol: error: give the primers with --primers/-P or with "
+                  << "--forward/-F and --reverse/-R, not both" << std::endl;
         return 2;
     }
     if (program.is_used("--fasta") == program.is_used("--amplicon-length")) {
@@ -799,8 +827,13 @@ int main(int argc, char *argv[]) {
     std::string forward, reverse;
     const Polymerase *pol = NULL;
     try {
-        forward = validate_primer(program.get<std::string>("--forward"), "Forward");
-        reverse = validate_primer(program.get<std::string>("--reverse"), "Reverse");
+        if (primers_from_fasta) {
+            const std::string path = program.get<std::string>("--primers");
+            std::tie(forward, reverse) = primers_from_records(parse_fasta(path), path);
+        } else {
+            forward = validate_primer(program.get<std::string>("--forward"), "Forward");
+            reverse = validate_primer(program.get<std::string>("--reverse"), "Reverse");
+        }
         pol = &find_polymerase(program.get<std::string>("--polymerase"), *table);
     } catch (const std::exception &e) {
         std::cerr << "Error: " << e.what() << std::endl;
