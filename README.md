@@ -5,8 +5,9 @@ University.
 
 ## Install
 
-Requires CMake >= 3.15 and a C++17 compiler. The two build dependencies are
-vendored as submodules, so clone recursively:
+Requires CMake >= 3.15 and a C++17 compiler (plus a C compiler, for the
+vendored primer3). The three build dependencies are vendored as submodules, so
+clone recursively:
 
 ```bash
 git clone --recurse-submodules https://github.com/Nheyer/Genomics_Scripts_Zlab.git
@@ -26,14 +27,15 @@ cmake .
 cmake --build .
 ```
 
-The binaries land in `bin/MSA-to-consensus` and `bin/Enzyme-digest`; build one
-on its own by naming it as the `--target`. The build uses the vendored
+The binaries land in `bin/MSA-to-consensus`, `bin/Enzyme-digest` and
+`bin/PCR-protocol`; build one on its own by naming it as the `--target`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
 
-Configuring also embeds `Data/restriction_enzymes.csv` into a generated header
-under `generated/`, which is why `Enzyme-digest` needs no data file at runtime.
-See [Enzyme data](#enzyme-data).
+Configuring also embeds `Data/restriction_enzymes.csv` and
+`Data/polymerases.csv` into generated headers under `generated/`, which is why
+neither `Enzyme-digest` nor `PCR-protocol` needs a data file at runtime. See
+[Enzyme data](#enzyme-data) and [Polymerase data](#polymerase-data).
 
 To put the tools on your PATH:
 
@@ -46,6 +48,7 @@ cmake --install .
 ```
 <prefix>/bin/MSA-to-consensus
 <prefix>/bin/Enzyme-digest
+<prefix>/bin/PCR-protocol
 <prefix>/share/doc/Genomics_Scripts_Zlab/
 ```
 
@@ -56,10 +59,11 @@ you own instead, no `sudo` required:
 cmake --install . --prefix ~/.local
 ```
 
-The installed docs include `LICENSE.restriction-digest`. That notice has to
-travel with the binary, so do not drop it from the install list — see
-[License](#license). The test binaries and the vendored CUnit library are
-deliberately not installed; they are only there to build and check the tools.
+The installed docs include `LICENSE.restriction-digest` and `LICENSE.primer3`.
+Those notices have to travel with the binaries, so do not drop them from the
+install list — see [License](#license). The test binaries and the vendored CUnit and primer3
+libraries are deliberately not installed; primer3 is linked statically into
+`PCR-protocol`, and CUnit is only there to check the tools.
 
 There is no `uninstall` target, but installing writes `install_manifest.txt`
 listing every file it placed, so removing them is:
@@ -74,9 +78,10 @@ xargs rm -f < install_manifest.txt
 |---|---|
 | [`MSA-to-consensus`](#msa-to-consensus) | Collapses a multiple sequence alignment into one consensus sequence, masking disagreements or coding them as IUPAC ambiguity |
 | [`Enzyme-digest`](#enzyme-digest) | In silico restriction digest — cut sites, fragment sizes and an ASCII gel, over a 262 enzyme database |
+| [`PCR-protocol`](#pcr-protocol) | A reaction setup and thermocycler program for a primer pair and polymerase, with primer Tm and hairpin/dimer checks |
 
-Both read FASTA and write their result to stdout (or to a file), with progress
-and errors on stderr, so redirecting stdout captures just the output.
+All three write their result to stdout (or, for the first two, to a file), with
+progress and errors on stderr, so redirecting stdout captures just the output.
 
 ## MSA-to-consensus
 
@@ -261,6 +266,164 @@ Carried over from the Python original unchanged:
 - Methylation sensitivity, star activity, and enzymes needing two sites are not
   modelled.
 
+## PCR-protocol
+
+Takes two primers and a polymerase and writes out the reaction: primer Tms,
+hairpin and dimer checks, a reaction setup, and a thermocycler program with the
+annealing temperature and extension time filled in.
+
+```bash
+./bin/PCR-protocol -p Q5 -f Data/test_files/TEST_PCR_LAMBDA.fna \
+    -F GTCACCAGTGCAGTGCTTGATAACAGG -R GATGACGCATCCTCACGATAATATCCGG
+```
+
+```
+PCR protocol: Q5 High-Fidelity DNA Polymerase (NEB M0491)
+
+Primers
+  Forward 5'-GTCACCAGTGCAGTGCTTGATAACAGG-3'
+          27 nt, GC 51.9%, Tm 69.0 C
+  Reverse 5'-GATGACGCATCCTCACGATAATATCCGG-3'
+          28 nt, GC 50.0%, Tm 68.0 C
+  Amplicon 1347 bp (NC_001416.1:29951-40100, bases 56..1402)
+
+Primer structures (primer3 thal, Tm of the most stable; flagged above 47 C)
+                     3' end      anywhere
+  Forward hairpin                35.4 C
+  Forward self-dimer 18.5 C      25.1 C
+  Reverse hairpin                35.5 C
+  Reverse self-dimer none        none
+  Cross-dimer        none        none
+
+Reaction setup (50 uL)
+  Component                           Volume      Final
+  5X Q5 Reaction Buffer               10 uL       1X
+  10 mM dNTPs                         1 uL        200 uM each
+  10 uM Forward primer                2.5 uL      0.5 uM
+  10 uM Reverse primer                2.5 uL      0.5 uM
+  Template DNA                        variable
+  Q5 polymerase (2 U/uL)              0.5 uL      1 U
+  Nuclease-free water                 to 50 uL
+
+Thermocycler program
+  Initial denaturation    98 C    30 s
+  30 cycles of:
+    Denaturation          98 C    10 s
+    Annealing             71 C    30 s
+    Extension             72 C    41 s
+  Final extension         72 C    2 min
+  Hold                    4 C     forever
+
+Notes
+  Annealing: lower Tm 68.0 C + 3 C per the Q5 datasheet. A gradient around it is the surest check.
+  ...
+
+Warnings
+  ! Reverse primer has 4 G/C in its last 5 bases (more than 3 invites mispriming)
+```
+
+These are NEB's own lambda control primers, and the 1347 bp product lands on
+the lambda coordinates NEB gives for them (30,006–31,352).
+
+### Options
+
+| Flag | Meaning |
+|---|---|
+| `-F`, `--forward` | Forward primer, 5'→3' (required) |
+| `-R`, `--reverse` | Reverse primer, 5'→3' **as ordered** — not the top strand sequence (required) |
+| `-p`, `--polymerase` | `Q5`, `Taq` or `Phusion`, case insensitively (required) |
+| `-f`, `--fasta` | Template FASTA; both primers are located on it to get the amplicon length |
+| `-l`, `--amplicon-length` | Amplicon length in bp, instead of `--fasta` |
+| `-c`, `--cycles` | Number of cycles (default: the polymerase's, 30 for all three) |
+| `--volume` | Reaction volume in µL (default 50); the setup scales from the datasheet's 50 µL |
+| `--simple-template` | Plasmid, lambda or *E. coli* template: use the datasheet's faster extension rate |
+| `--polymerase-db` | Read polymerases from a CSV instead of the built in table |
+| `--list-polymerases` | List the known polymerases and exit |
+
+Exactly one of `--fasta` and `--amplicon-length` is needed — extension time
+depends on the product length, and two primers alone do not give it.
+
+With `--fasta`, the primers must match the template exactly. The template may
+be either strand and may hold several records; the pair has to make exactly one
+product across all of them, or the tool lists what it found and stops rather
+than guess. If nothing is found it says why — most usefully when the reverse
+primer was given as the top strand sequence instead of 5'→3' as ordered.
+
+### How the numbers are worked out
+
+- **Primer Tm** — the SantaLucia 1998 unified nearest-neighbour model with its
+  salt correction, magnesium counted as sodium equivalents
+  (`[Na+] + 120·√([Mg²+] − [dNTP])`), at the polymerase's buffer and primer
+  concentrations. These are primer3's default formulas, and the tests check the
+  two agree to 10⁻⁶ °C.
+- **Annealing** — the datasheet rule applied to the lower Tm, rounded to a whole
+  degree: Q5 is Tm + 3; Phusion is Tm + 3 when both primers are over 20 nt and
+  Tm otherwise; Taq is Tm − 5, which is where NEB says to start a gradient (the
+  Taq datasheet gives no fixed rule). If that reaches the extension temperature
+  the program goes 2-step, annealing folded into extension.
+- **Extension** — amplicon length times the datasheet rate, rounded up to a
+  whole second. Q5 and Phusion use their rate for complex (genomic) templates
+  unless `--simple-template`; Q5 goes to 50 s/kb over 6 kb; Taq never drops
+  below 45 s.
+- **Primer structures** — hairpins, self-dimers and the cross-dimer, from
+  primer3's thermodynamic aligner (`thal`), which handles mismatches, bulges,
+  loops and dangling ends. Each is the melting temperature of the most stable
+  structure, and anything above 47 °C is flagged — primer3's own default limit.
+  "3' end" is the structure anchored on a primer's 3' end, the one the
+  polymerase can extend.
+- **Other checks** — GC 40–60% and length 20–40 nt (the NEB datasheets); the
+  two Tms within 5 °C, at most 3 G/C in the last 5 bases, no runs over 4 and no
+  more than 4 dinucleotide repeats (Premier Biosoft's guidelines).
+
+### Polymerase data
+
+`Data/polymerases.csv` is the single source of truth for the polymerases, in
+the same arrangement as the enzyme table: embedded at configure time and parsed
+by the loader `--polymerase-db` uses. **Every number in it comes from the
+manufacturer's datasheet**, cited in the `source` column:
+
+| Polymerase | Source |
+|---|---|
+| Q5 (NEB M0491) | NEB protocol *PCR Using Q5 High-Fidelity DNA Polymerase (M0491)* |
+| Taq (NEB M0273) | NEB *PCR with Taq DNA Polymerase (M0273)*, [protocols.io](https://dx.doi.org/10.17504/protocols.io.ch7t9m); buffer composition and the 45 s floor from the Taq PCR Kit (E5000) manual |
+| Phusion (NEB M0530) | NEB *Phusion High Fidelity PCR Kit (E0553)* manual, v4.0 |
+
+Where a datasheet gives a range, the table takes the longer or more
+conservative end — 10 s denaturation for the high fidelity enzymes, the
+genomic extension rate, the longer annealing and final extension times — and
+the `notes` column records anything that is not straight off the page. Those
+notes are printed with every protocol. Add a polymerase by adding a row, from
+its datasheet; the loader refuses a row with a missing or non-numeric column
+rather than let it become a zero second step.
+
+### Known limitations
+
+- **Tm is not NEB's Tm.** The datasheets tune their annealing rules against
+  NEB's Tm calculator, whose model is not published, and it gives different
+  numbers. NEB's Phusion manual quotes Tms for its own control primers; under
+  the Phusion buffer this tool gives:
+
+  | Primer | NEB | This tool |
+  |---|---|---|
+  | `GTCACCAGTGCAGTGCTTGATAACAGG` | 71.0 | 68.0 |
+  | `GATGACGCATCCTCACGATAATATCCGG` | 73.2 | 67.0 |
+  | `CAGTGCAGTGCTTGATAACAGG` | 63.0 | 62.4 |
+  | `GTAGTGCGCGTTTGATTTCC` | 62.7 | 60.9 |
+
+  So the annealing temperature can come out several degrees under what NEB's
+  calculator would suggest, and that can change the program's shape, not just
+  a number: NEB runs the 1.3 kb pair as a 2-step program at 72 C, where this
+  tool, from its lower Tms, anneals separately at 70 C. Run a gradient around
+  it.
+- **Monovalent salt for Q5 and Phusion is assumed.** NEB does not publish those
+  buffer compositions, so 50 mM is used, and the output says so. Taq's 50 mM
+  KCl is published.
+- **Primers must match the template exactly.** Tailed primers (restriction
+  sites, Gibson overlaps) and degenerate primers are not located or scored; for
+  a tailed pair, give `--amplicon-length` with the tails included.
+- **Linear templates only.** A product spanning the origin of a circular
+  template is not found.
+
 ## Repository layout
 
 | Path | What it is |
@@ -270,24 +433,31 @@ Carried over from the Python original unchanged:
 | `CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` | `Enzyme-digest` |
 | `CppSrc/Enzyme-digest/enzyme_data.hpp` | IUPAC codes, complement table and ladder — lookup tables only, no logic |
 | `CppSrc/Enzyme-digest/enzyme_csv_embedded.hpp.in` | Template CMake fills with the enzyme CSV at configure time; required to build |
+| `CppSrc/PCR-protocol/PCR_Protocol.cpp` | `PCR-protocol` |
+| `CppSrc/PCR-protocol/pcr_data.hpp` | Nearest-neighbour parameters and primer limits, each with its source — lookup tables only, no logic |
+| `CppSrc/PCR-protocol/polymerase_csv_embedded.hpp.in` | Template CMake fills with the polymerase CSV at configure time; required to build |
 | `Data/restriction_enzymes.csv` | The enzyme database, in NEB `^`/`_` notation. **The source of truth** — see [Enzyme data](#enzyme-data) |
+| `Data/polymerases.csv` | The polymerase table, from the datasheets. **The source of truth** — see [Polymerase data](#polymerase-data) |
 | `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
 | `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
+| `Tests/test_pcr.cpp` | CUnit unit tests for `PCR-protocol`, same |
 | `LICENSE.restriction-digest` | MIT notice for the code `Enzyme-digest` was ported from, see [License](#license) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
 | `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
+| `External_tools/primer3` | [primer3-org/primer3](https://github.com/primer3-org/primer3) v2.6.1; `PCR-protocol` builds its `thal` hairpin/dimer aligner (build dependency) |
 
 ## Development
 
 ### Running the tests
 
-`Tests/` unit tests both tools with CUnit:
+`Tests/` unit tests all three tools with CUnit:
 
 ```bash
-cmake --build . --target test_consensus test_digest
+cmake --build . --target test_consensus test_digest test_pcr
 ./bin/test_consensus
 ./bin/test_digest
+./bin/test_pcr
 ```
 
 or through CTest, which is what CI would use:
@@ -324,6 +494,22 @@ Beyond that it covers both NEB notations, the CSV `^`/`_` form, both strands,
 overlapping sites, origin-spanning circular sites, gap stripping, and the
 `definite`/`possible` split.
 
+The PCR suite pins every expected number to something outside the code:
+
+- **The paper against itself.** SantaLucia 1998 gives the nearest-neighbour
+  parameters twice, as ΔH/ΔS (Table 2, what we compute from) and as ΔG₃₇
+  (Table 1, typed in separately in the test). Each row has to reproduce the
+  other, so a transcription slip in either fails.
+- **Tm against primer3**, both by calling the vendored `oligotm()` side by side
+  and against values from a separate primer3-py build, for all three buffers.
+- **thal against the primer3 manual's worked examples**, which it reproduces to
+  four decimals.
+- **NEB's lambda control primers**, located at the genome coordinates NEB
+  states, including the reverse primer's orientation — given as the top strand
+  sequence it must find nothing.
+- **Annealing and extension by hand**, including every boundary the datasheets
+  draw: 20 vs 21 nt for Phusion, "over 6 kb" for Q5, "above 65 °C" for Taq.
+
 ### The digest simulator
 
 `Enzyme-digest` is a C++ port of the Python restriction digest simulator, taken
@@ -334,7 +520,7 @@ so the fork's `main` is where that project's work actually lives.
 
 The Python is **not** vendored here. It was carried as a submodule while the
 port was being written and has been removed now that the port stands on its
-own — `External_tools/` holds only the two build dependencies. Record the
+own — `External_tools/` holds only build dependencies. Record the
 commit above rather than the working copy: that hash is what the port
 corresponds to, and it is the provenance behind the attribution in
 [License](#license). Removing the copy changes nothing about that obligation.
@@ -398,6 +584,11 @@ come back as the input sequence unchanged — output is rewrapped at 80 columns)
 `Sheep_products.fna` (1000 sequences, long enough that the accumulator has to
 compress), `TEST.faa` / `NP_061820.1` (protein).
 
+`TEST_PCR_LAMBDA.fna` is bases 29,951–40,100 of phage lambda (NC_001416.1), the
+stretch holding both of NEB's lambda control amplicons from the Phusion manual:
+the 1.3 kb pair (30,006–31,352, 1347 bp) and the 10 kb pair (30,011–40,043,
+10,033 bp). Position `p` in the file is genome position `p + 29,950`.
+
 These fixtures exercise the tool end to end through its CLI. The finer grained
 checks on the individual functions live in the CUnit suite, see
 [Running the tests](#running-the-tests).
@@ -438,3 +629,12 @@ all, so it stays with those files, with the source header, and with anything
 built or installed from them — regardless of how far the port diverges from the
 original. A translation into another language is a derivative work; the extent
 of the changes does not retire the obligation.
+
+`PCR-protocol` links `thal.c`, `thal_parameters.c` and `oligotm.c` from
+[primer3](https://github.com/primer3-org/primer3), © Whitehead Institute for
+Biomedical Research, Steve Rozen, Andreas Untergasser and Helen Skaletsky
+(years per file, 1996–2018), distributed under the GPL version 2 or (at your
+option) any later version — which is what lets it be combined into this GPL v3 work. Its licence
+and copyright headers are unchanged in the `External_tools/primer3`
+submodule, and its licence is installed alongside the binaries as
+`LICENSE.primer3`.

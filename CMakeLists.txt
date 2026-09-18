@@ -15,6 +15,7 @@ endif()
 # Data (the enzyme table, the test fixtures) lives under Data/.
 set(MSA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/MSA-to-consensus)
 set(DIGEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/Enzyme-digest)
+set(PCR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/PCR-protocol)
 set(DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Data)
 
 # Target names match the directory names, and the binaries in bin/ get the
@@ -40,6 +41,43 @@ target_include_directories(Enzyme-digest PRIVATE
     ${ARGPARSE_INCLUDE_DIR}
     ${GENERATED_INCLUDE_DIR}
     ${DIGEST_DIR})
+
+# --- polymerase table ----------------------------------------------------------
+# Same arrangement as the enzyme table: Data/polymerases.csv is the only copy,
+# embedded verbatim and parsed by the loader --polymerase-db uses.
+file(READ ${DATA_DIR}/polymerases.csv POLYMERASE_CSV_CONTENTS)
+configure_file(
+    ${PCR_DIR}/polymerase_csv_embedded.hpp.in
+    ${GENERATED_INCLUDE_DIR}/polymerase_csv_embedded.hpp
+    @ONLY)
+
+# Hairpins and dimers come from primer3's thal, vendored as a submodule. Only
+# the three C files needed are built: thal.c, its parameters (compiled in, so
+# nothing is read from disk at run time), and oligotm.c, which the tests use to
+# check our Tm against primer3's. It is third party code, so its warnings are
+# not ours to fix.
+set(PRIMER3_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/External_tools/primer3/src)
+if(NOT EXISTS ${PRIMER3_SRC_DIR}/thal.c)
+    message(FATAL_ERROR "primer3 submodule is missing, run: git submodule update --init --recursive")
+endif()
+add_library(primer3_thal STATIC
+    ${PRIMER3_SRC_DIR}/thal.c
+    ${PRIMER3_SRC_DIR}/thal_parameters.c
+    ${PRIMER3_SRC_DIR}/oligotm.c)
+target_include_directories(primer3_thal PUBLIC ${PRIMER3_SRC_DIR})
+if(NOT MSVC)
+    target_compile_options(primer3_thal PRIVATE -w)
+endif()
+if(UNIX)
+    target_link_libraries(primer3_thal PUBLIC m)
+endif()
+
+add_executable(PCR-protocol ${PCR_DIR}/PCR_Protocol.cpp)
+target_include_directories(PCR-protocol PRIVATE
+    ${ARGPARSE_INCLUDE_DIR}
+    ${GENERATED_INCLUDE_DIR}
+    ${PCR_DIR})
+target_link_libraries(PCR-protocol PRIVATE primer3_thal)
 
 # --- tests -------------------------------------------------------------------
 # CUnit is vendored as a submodule too. We only want the library, not CUnit's
@@ -67,6 +105,16 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
         ${DIGEST_DIR})
     target_link_libraries(test_digest PRIVATE cunit)
     add_test(NAME digest COMMAND test_digest)
+
+    add_executable(test_pcr Tests/test_pcr.cpp)
+    target_include_directories(test_pcr PRIVATE
+        ${ARGPARSE_INCLUDE_DIR}
+        ${GENERATED_INCLUDE_DIR}
+        ${PCR_DIR})
+    target_link_libraries(test_pcr PRIVATE cunit primer3_thal)
+    target_compile_definitions(test_pcr PRIVATE
+        PCR_TEST_FIXTURE="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna")
+    add_test(NAME pcr COMMAND test_pcr)
 else()
     message(STATUS "cunit submodule missing, skipping tests. "
                    "Run: git submodule update --init --recursive")
@@ -76,12 +124,17 @@ endif()
 # Only the tools go out; test_consensus is for us, and cunit is a build
 # dependency that EXCLUDE_FROM_ALL above already keeps out of the install.
 include(GNUInstallDirs)
-install(TARGETS MSA-to-consensus Enzyme-digest
+install(TARGETS MSA-to-consensus Enzyme-digest PCR-protocol
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # LICENSE.restriction-digest is the MIT notice for the code Enzyme-digest was
 # ported from; it has to travel with the binary we ship.
 install(FILES README.md LICENSE LICENSE.restriction-digest
     DESTINATION ${CMAKE_INSTALL_DOCDIR})
+# PCR-protocol statically links primer3 (GPL v2 or later), so its licence and
+# copyright travel with the binary too.
+install(FILES ${PRIMER3_SRC_DIR}/../LICENSE
+    DESTINATION ${CMAKE_INSTALL_DOCDIR}
+    RENAME LICENSE.primer3)
 
 # We build in source, so `clean` also takes out what configuring generated.
 # The binary itself is already handled by the built in clean; we deliberately

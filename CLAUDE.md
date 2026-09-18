@@ -5,13 +5,15 @@ code in this repository.
 
 ## Project status
 
-Two C++17 command line tools for the Zabel Lab at Colorado State University,
+Three C++17 command line tools for the Zabel Lab at Colorado State University,
 built with CMake:
 
 - `MSA-to-consensus` — collapses a multiple sequence alignment into one
   consensus sequence.
 - `Enzyme-digest` — in silico restriction digest, ported from Python in
   August 2026 and verified byte-for-byte against the original.
+- `PCR-protocol` — reaction setup and thermocycler program for a primer pair
+  and polymerase, with primer Tm and primer3 `thal` hairpin/dimer checks.
 
 `README.md` is the user-facing documentation and is kept accurate; prefer
 reading it over re-deriving how a tool behaves.
@@ -20,15 +22,17 @@ reading it over re-deriving how a tool behaves.
 
 ```bash
 cmake .                                   # configure (also embeds the enzyme CSV)
-cmake --build .                           # both tools + both test binaries
+cmake --build .                           # all three tools + test binaries
 cmake --build . --target Enzyme-digest    # one target
-ctest                                     # both suites, non-zero on failure
+ctest                                     # all suites, non-zero on failure
 ./bin/test_digest                         # one suite, verbose per-test output
 cmake --build . --target clean            # see "No .gitignore" below
 
 ./bin/MSA-to-consensus -i Data/test_files/TEST_IUPAC_R.msa.fna -a
 ./bin/Enzyme-digest -f Data/test_files/TEST.fna -e EcoRI,BamHI,BsaI
 ./bin/Enzyme-digest --list-enzymes        # 262 enzymes + 25 quarantined
+./bin/PCR-protocol -p Q5 -f Data/test_files/TEST_PCR_LAMBDA.fna \
+    -F GTCACCAGTGCAGTGCTTGATAACAGG -R GATGACGCATCCTCACGATAATATCCGG
 ```
 
 **Binaries built with CLion's bundled MinGW need its runtime on PATH or they
@@ -57,6 +61,19 @@ generated header, and the built-in table is parsed from that string by the same
 loader `--enzyme-db` uses on a real file — one copy of the data, one parser.
 Never transcribe enzymes into a C++ table; two copies would drift. Re-run
 `cmake .` after editing the CSV.
+
+`Data/polymerases.csv` follows the same pattern for `PCR-protocol`, and the
+same rule: **every polymerase number comes from the manufacturer's datasheet**,
+cited in its `source` column. Anything not straight off the page goes in the
+`notes` column, which the tool prints with every protocol.
+
+**`PCR-protocol` computes Tm itself but takes hairpins and dimers from primer3.**
+Our SantaLucia 1998 Tm matches primer3's `oligotm()` to 1e-6 C, and the tests
+call both side by side. Structures come from `thal`, built from the
+`External_tools/primer3` submodule (v2.6.1, parameters compiled in) as the
+static library `primer3_thal`. A home-grown perfect-match dimer model was tried
+first and missed ~80% of the self-dimers `thal` flags; do not reintroduce one.
+`thal.h` has no `extern "C"` guard, so it is included inside one.
 
 **Enzyme specificities come from REBASE, never from recall.** Wrong cut data is
 silent and biological — the worst failure mode here.

@@ -6,3 +6,7 @@
 	url = https://gitlab.com/cunity/cunit.git
 	# cunit gets built in place, so don't report its build output as changes
 	ignore = dirty
+[submodule "External_tools/primer3"]
+	path = External_tools/primer3
+	url = https://github.com/primer3-org/primer3
+	# pinned to the v2.6.1 tag; the tests hold thal to values from that release
