@@ -337,6 +337,8 @@ the lambda coordinates NEB gives for them (30,006–31,352).
 | `-l`, `--amplicon-length` | Amplicon length in bp, instead of `--fasta` |
 | `-c`, `--cycles` | Number of cycles (default: the polymerase's, 30 for all three) |
 | `--volume` | Reaction volume in µL (default 50); the setup scales from the datasheet's 50 µL |
+| `-n`, `--replicates` | Number of reactions (default 1); above 1, a master mix is added — see below |
+| `--template-volume` | Template per tube in µL (default 1), left out of the master mix |
 | `--simple-template` | Plasmid, lambda or *E. coli* template: use the datasheet's faster extension rate |
 | `--polymerase-db` | Read polymerases from a CSV instead of the built in table |
 | `--list-polymerases` | List the known polymerases and exit |
@@ -359,6 +361,32 @@ be either strand and may hold several records; the pair has to make exactly one
 product across all of them, or the tool lists what it found and stops rather
 than guess. If nothing is found it says why — most usefully when the reverse
 primer was given as the top strand sequence instead of 5'→3' as ordered.
+
+### Master mix
+
+With `--replicates` above 1 the output adds a master mix for that many
+reactions plus 10% for pipetting loss. The template goes into each tube on its
+own, so the mix holds everything else, with the water worked out from
+`--template-volume`: aliquot the mix, then add the template.
+
+```bash
+./bin/PCR-protocol -p Q5 -P Data/test_files/TEST_PCR_PRIMERS.fna -l 1347 -n 8
+```
+
+```
+Master mix (8 reactions + 10% = 8.8, 431.2 uL)
+  Component                           Per rxn     Mix
+  5X Q5 Reaction Buffer               10 uL       88 uL
+  10 mM dNTPs                         1 uL        8.8 uL
+  10 uM Forward primer                2.5 uL      22 uL
+  10 uM Reverse primer                2.5 uL      22 uL
+  Q5 polymerase (2 U/uL)              0.5 uL      4.4 uL
+  Nuclease-free water                 32.5 uL     286 uL
+  Aliquot 49 uL per tube, then add 1 uL template.
+```
+
+A template too big to fit beside the reagents is an error rather than a
+negative water volume.
 
 ### How the numbers are worked out
 

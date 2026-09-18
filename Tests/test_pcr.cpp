@@ -459,6 +459,45 @@ static void test_runs_and_repeats(void) {
     CU_ASSERT_TRUE(near(gc_percent("GGCCAATT"), 50.0, 1e-12));
 }
 
+// ------------------------------------------------------------ master mix ---
+
+// By hand, Q5 at 50 uL, 8 reactions, 1 uL template: reagents per reaction are
+// 10 + 1 + 2.5 + 2.5 + 0.5 = 16.5 uL, so water is 50 - 1 - 16.5 = 32.5 uL.
+// With 10% extra that is 8.8 reactions: 88, 8.8, 22, 22, 4.4 and 286 uL.
+static void test_master_mix_by_hand(void) {
+    MasterMix mix = master_mix(builtin("Q5"), 50.0, 8, 1.0);
+    CU_ASSERT_TRUE(near(mix.reactions, 8.8, 1e-9));
+    CU_ASSERT_TRUE(near(mix.aliquot_ul, 49.0, 1e-9));
+    const double expected_mix[] = {88.0, 8.8, 22.0, 22.0, 4.4, 286.0};
+    CU_ASSERT_EQUAL_FATAL(mix.per_reaction.size(), 6u);
+    for (size_t k = 0; k < 6; k++) {
+        CU_ASSERT_TRUE(near(mix.per_reaction[k].ul * mix.reactions, expected_mix[k], 1e-9));
+    }
+    CU_ASSERT_EQUAL(mix.per_reaction.back().name, std::string("Nuclease-free water"));
+    // Per tube, mix plus template is the reaction volume.
+    double per_tube = 0;
+    for (const Component &c : mix.per_reaction) { per_tube += c.ul; }
+    CU_ASSERT_TRUE(near(per_tube + 1.0, 50.0, 1e-9));
+}
+
+// Taq at 25 uL, 3 reactions, 2 uL template: 2.5 + 0.5 + 0.5 + 0.5 + 0.125 =
+// 4.125 uL of reagents, water 25 - 2 - 4.125 = 18.875, times 3.3 reactions.
+static void test_master_mix_scales_with_volume(void) {
+    MasterMix mix = master_mix(builtin("Taq"), 25.0, 3, 2.0);
+    CU_ASSERT_TRUE(near(mix.reactions, 3.3, 1e-9));
+    CU_ASSERT_TRUE(near(mix.per_reaction.back().ul, 18.875, 1e-9));
+    CU_ASSERT_TRUE(near(mix.per_reaction[4].ul * mix.reactions, 0.4125, 1e-9));  // enzyme
+    CU_ASSERT_TRUE(near(mix.aliquot_ul, 23.0, 1e-9));
+}
+
+static void test_master_mix_rejects_what_does_not_fit(void) {
+    // 33.5 uL of template leaves exactly no water; 34 does not fit.
+    CU_ASSERT_FALSE(throws([] { master_mix(builtin("Q5"), 50.0, 8, 33.5); }));
+    CU_ASSERT_TRUE(throws([] { master_mix(builtin("Q5"), 50.0, 8, 34.0); }));
+    CU_ASSERT_TRUE(throws([] { master_mix(builtin("Q5"), 50.0, 0, 1.0); }));
+    CU_ASSERT_TRUE(throws([] { master_mix(builtin("Q5"), 50.0, 8, -1.0); }));
+}
+
 // ---------------------------------------------------------------- output ---
 
 static void test_formatting(void) {
@@ -533,6 +572,11 @@ int main(void) {
         {"primer QC", {
             {"primer validation", test_primer_validation},
             {"runs, repeats, GC clamp", test_runs_and_repeats},
+        }},
+        {"master mix", {
+            {"by hand", test_master_mix_by_hand},
+            {"scales with volume", test_master_mix_scales_with_volume},
+            {"rejects what does not fit", test_master_mix_rejects_what_does_not_fit},
         }},
         {"output", {
             {"formatting", test_formatting},

@@ -659,6 +659,63 @@ static std::string pad(const std::string &s, size_t width) {
     return s.size() >= width ? s + " " : s + std::string(width - s.size(), ' ');
 }
 
+// ----------------------------------------------------------- reaction mix ---
+
+// Extra made up in a master mix to cover pipetting loss, as a fraction.
+static const double MASTER_MIX_OVERAGE = 0.10;
+
+// One reagent of the reaction: what goes in one tube and what it comes to.
+struct Component {
+    std::string name;
+    double ul = 0;      // per reaction
+    std::string final;  // final concentration, for display
+};
+
+// Everything but template and water, scaled from the datasheet's 50 uL.
+static std::vector<Component> reagents(const Polymerase &p, double volume_ul) {
+    const double units = p.enzyme_units_per_50ul * volume_ul / 50.0;
+    std::vector<Component> out;
+    out.push_back({p.buffer, volume_ul / p.buffer_x, "1X"});
+    out.push_back({"10 mM dNTPs", volume_ul * p.dntp_each_um / 10000.0,
+                   volume(p.dntp_each_um) + " uM each"});
+    for (const char *which : {"Forward", "Reverse"}) {
+        out.push_back({std::string("10 uM ") + which + " primer", volume_ul * p.primer_um / 10.0,
+                       volume(p.primer_um) + " uM"});
+    }
+    out.push_back({p.name + " polymerase (" + volume(p.enzyme_stock_u_per_ul) + " U/uL)",
+                   units / p.enzyme_stock_u_per_ul, volume(units) + " U"});
+    return out;
+}
+
+// A master mix for `replicates` reactions plus MASTER_MIX_OVERAGE. Template
+// goes into each tube on its own, so the mix holds everything else, with water
+// up to the volume less the template: aliquot that much, then add template.
+struct MasterMix {
+    std::vector<Component> per_reaction;  // reagents, then water last
+    double reactions = 0;                 // replicates with the overage
+    double aliquot_ul = 0;                // mix per tube
+};
+
+static MasterMix master_mix(const Polymerase &p, double volume_ul, int replicates,
+                            double template_ul) {
+    if (replicates < 1) { throw std::invalid_argument("--replicates must be at least 1"); }
+    if (template_ul < 0) { throw std::invalid_argument("--template-volume cannot be negative"); }
+    MasterMix mix;
+    mix.per_reaction = reagents(p, volume_ul);
+    double used = template_ul;
+    for (const Component &c : mix.per_reaction) { used += c.ul; }
+    const double water = volume_ul - used;
+    if (water < -1e-9) {
+        throw std::invalid_argument(
+            "a " + volume(template_ul) + " uL template does not fit: the reagents already take " +
+            volume(used - template_ul) + " of the " + volume(volume_ul) + " uL");
+    }
+    mix.per_reaction.push_back({"Nuclease-free water", water < 0 ? 0 : water, ""});
+    mix.reactions = replicates * (1.0 + MASTER_MIX_OVERAGE);
+    mix.aliquot_ul = volume_ul - template_ul;
+    return mix;
+}
+
 // A structure Tm, flagged when primer3 would reject it.
 static std::string describe_structure(double tm, bool *bad) {
     if (tm <= 0.0) { return "none"; }
@@ -766,6 +823,14 @@ int main(int argc, char *argv[]) {
     program.add_argument("--volume")
         .help("Reaction volume in uL (default: 50)")
         .default_value(50.0)
+        .scan<'g', double>();
+    program.add_argument("--replicates", "-n")
+        .help("Number of reactions; above 1, a master mix is made up with 10% extra (default: 1)")
+        .default_value(1)
+        .scan<'i', int>();
+    program.add_argument("--template-volume")
+        .help("Template per tube in uL, left out of the master mix; sets its water (default: 1)")
+        .default_value(1.0)
         .scan<'g', double>();
     program.add_argument("--simple-template")
         .help("Plasmid, lambda or E. coli template: use the datasheet's faster extension rate")
@@ -893,6 +958,15 @@ int main(int argc, char *argv[]) {
         std::cerr << "Error: --cycles and --volume must be positive" << std::endl;
         return 1;
     }
+    const int replicates = program.get<int>("--replicates");
+    const double template_ul = program.get<double>("--template-volume");
+    MasterMix mix;
+    try {
+        mix = master_mix(*pol, volume_ul, replicates, template_ul);
+    } catch (const std::exception &e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
 
     // Primers.
     const double sodium = reaction_sodium_mm(*pol);
@@ -953,27 +1027,32 @@ int main(int argc, char *argv[]) {
     }
 
     // Reaction setup, scaled from the datasheet's 50 uL.
-    const double scale = volume_ul / 50.0;
-    const double units = pol->enzyme_units_per_50ul * scale;
+    const std::vector<Component> parts = reagents(*pol, volume_ul);
+    auto row = [](const Component &c) {
+        std::cout << "  " << pad(c.name, 36) << pad(volume(c.ul) + " uL", 12) << c.final
+                  << std::endl;
+    };
     std::cout << "\nReaction setup (" << volume(volume_ul) << " uL)" << std::endl;
     std::cout << "  " << pad("Component", 36) << pad("Volume", 12) << "Final" << std::endl;
-    std::cout << "  " << pad(pol->buffer, 36) << pad(volume(volume_ul / pol->buffer_x) + " uL", 12)
-              << "1X" << std::endl;
-    std::cout << "  " << pad("10 mM dNTPs", 36)
-              << pad(volume(volume_ul * pol->dntp_each_um / 10000.0) + " uL", 12)
-              << volume(pol->dntp_each_um) << " uM each" << std::endl;
-    for (const char *which : {"Forward", "Reverse"}) {
-        std::cout << "  " << pad(std::string("10 uM ") + which + " primer", 36)
-                  << pad(volume(volume_ul * pol->primer_um / 10.0) + " uL", 12)
-                  << volume(pol->primer_um) << " uM" << std::endl;
-    }
+    for (size_t k = 0; k + 1 < parts.size(); k++) { row(parts[k]); }
     std::cout << "  " << pad("Template DNA", 36) << "variable" << std::endl;
-    std::cout << "  "
-              << pad(pol->name + " polymerase (" + volume(pol->enzyme_stock_u_per_ul) + " U/uL)", 36)
-              << pad(volume(units / pol->enzyme_stock_u_per_ul) + " uL", 12) << volume(units)
-              << " U" << std::endl;
+    row(parts.back());  // the polymerase goes in last
     std::cout << "  " << pad("Nuclease-free water", 36) << "to " << volume(volume_ul) << " uL"
               << std::endl;
+
+    if (replicates > 1) {
+        const double per_rxn_total = mix.aliquot_ul;
+        std::cout << "\nMaster mix (" << replicates << " reactions + "
+                  << fixed(MASTER_MIX_OVERAGE * 100, 0) << "% = " << volume(mix.reactions)
+                  << ", " << volume(per_rxn_total * mix.reactions) << " uL)" << std::endl;
+        std::cout << "  " << pad("Component", 36) << pad("Per rxn", 12) << "Mix" << std::endl;
+        for (const Component &c : mix.per_reaction) {
+            std::cout << "  " << pad(c.name, 36) << pad(volume(c.ul) + " uL", 12)
+                      << volume(c.ul * mix.reactions) << " uL" << std::endl;
+        }
+        std::cout << "  Aliquot " << volume(mix.aliquot_ul) << " uL per tube, then add "
+                  << volume(template_ul) << " uL template." << std::endl;
+    }
 
     // Thermocycler program.
     auto step = [](const std::string &name, int temp_c, const std::string &time) {
