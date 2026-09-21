@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 cmake_minimum_required(VERSION 3.15)
 
 project(Genomics_Scripts_Zlab)
@@ -16,12 +17,15 @@ endif()
 set(MSA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/MSA-to-consensus)
 set(DIGEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/Enzyme-digest)
 set(PCR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/PCR-protocol)
+# Header only code the tools share. Not a target and it has no main(): each tool
+# stays one translation unit and just #includes from here.
+set(COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/common)
 set(DATA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Data)
 
 # Target names match the directory names, and the binaries in bin/ get the
 # same names again.
 add_executable(MSA-to-consensus ${MSA_DIR}/MSA_fasta_to_Consensus.cpp)
-target_include_directories(MSA-to-consensus PRIVATE ${ARGPARSE_INCLUDE_DIR})
+target_include_directories(MSA-to-consensus PRIVATE ${ARGPARSE_INCLUDE_DIR} ${COMMON_DIR})
 
 # --- enzyme table ------------------------------------------------------------
 # Data/restriction_enzymes.csv is the single source of truth for the enzyme
@@ -40,7 +44,8 @@ add_executable(Enzyme-digest ${DIGEST_DIR}/Restriction_Enzyme_Digest.cpp)
 target_include_directories(Enzyme-digest PRIVATE
     ${ARGPARSE_INCLUDE_DIR}
     ${GENERATED_INCLUDE_DIR}
-    ${DIGEST_DIR})
+    ${DIGEST_DIR}
+    ${COMMON_DIR})
 
 # --- polymerase table ----------------------------------------------------------
 # Same arrangement as the enzyme table: Data/polymerases.csv is the only copy,
@@ -76,7 +81,8 @@ add_executable(PCR-protocol ${PCR_DIR}/PCR_Protocol.cpp)
 target_include_directories(PCR-protocol PRIVATE
     ${ARGPARSE_INCLUDE_DIR}
     ${GENERATED_INCLUDE_DIR}
-    ${PCR_DIR})
+    ${PCR_DIR}
+    ${COMMON_DIR})
 target_link_libraries(PCR-protocol PRIVATE primer3_thal)
 
 # --- tests -------------------------------------------------------------------
@@ -94,7 +100,8 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
     # of test_consensus.cpp for why.
     target_include_directories(test_consensus PRIVATE
         ${ARGPARSE_INCLUDE_DIR}
-        ${MSA_DIR})
+        ${MSA_DIR}
+        ${COMMON_DIR})
     target_link_libraries(test_consensus PRIVATE cunit)
     add_test(NAME consensus COMMAND test_consensus)
 
@@ -102,7 +109,8 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
     target_include_directories(test_digest PRIVATE
         ${ARGPARSE_INCLUDE_DIR}
         ${GENERATED_INCLUDE_DIR}
-        ${DIGEST_DIR})
+        ${DIGEST_DIR}
+        ${COMMON_DIR})
     target_link_libraries(test_digest PRIVATE cunit)
     add_test(NAME digest COMMAND test_digest)
 
@@ -110,12 +118,23 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
     target_include_directories(test_pcr PRIVATE
         ${ARGPARSE_INCLUDE_DIR}
         ${GENERATED_INCLUDE_DIR}
-        ${PCR_DIR})
+        ${PCR_DIR}
+        ${COMMON_DIR})
     target_link_libraries(test_pcr PRIVATE cunit primer3_thal)
     target_compile_definitions(test_pcr PRIVATE
         PCR_TEST_FIXTURE="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna"
         PCR_TEST_PRIMERS="${DATA_DIR}/test_files/TEST_PCR_PRIMERS.fna")
     add_test(NAME pcr COMMAND test_pcr)
+
+    # The shared reader has no main() to rename away, so this one includes the
+    # header as any tool would.
+    add_executable(test_fasta Tests/test_fasta.cpp)
+    target_include_directories(test_fasta PRIVATE ${COMMON_DIR})
+    target_link_libraries(test_fasta PRIVATE cunit)
+    target_compile_definitions(test_fasta PRIVATE
+        FASTA_TEST_SHEEP="${DATA_DIR}/test_files/Sheep_products.fna"
+        FASTA_TEST_LAMBDA="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna")
+    add_test(NAME fasta COMMAND test_fasta)
 else()
     message(STATUS "cunit submodule missing, skipping tests. "
                    "Run: git submodule update --init --recursive")

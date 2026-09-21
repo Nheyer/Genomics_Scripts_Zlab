@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // Static reference data for the PCR protocol generator.
 //
 // Lookup tables only - no logic, and nothing here depends on the tool, the same

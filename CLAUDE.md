@@ -51,6 +51,16 @@ directly, so they call the real functions with no seam and the program source
 needs no changes to be testable. Keep it that way: splitting a tool into
 `.hpp`/`.cpp` breaks that pattern.
 
+**The one exception is header-only code shared between tools, in `CppSrc/common/`.**
+`fasta.hpp` is the single FASTA reader for all three; it is not a target and has
+no `main()`, so the rule above is untouched. Each tool's `parse_fasta` is a thin
+adapter over it: it maps the reader's typed errors (`fasta::problem`) onto the
+tool's own messages and adds the tool's own validation through
+`options::check_line`. That split is what let `Enzyme-digest` keep its
+Python-parity messages, and it is also what keeps the MIT lineage out of the
+shared file, so do not move that wording into `fasta.hpp`. `Tests/test_fasta.cpp`
+includes the header directly. Adding a file here means adding a `test_*` for it.
+
 **Directory name = CMake target name = binary name.** `CppSrc/Enzyme-digest/`
 builds target `Enzyme-digest` into `bin/Enzyme-digest`. `CppSrc/` holds source
 only; data lives in `Data/`.
@@ -95,11 +105,17 @@ everything.
 
 ## Conventions that matter here
 
-**No `.gitignore`, deliberately.** The build happens in-source and
+**No `.gitignore` in the repo, deliberately.** The build happens in-source and
 `cmake --build . --target clean` removes everything configuring generated, so
 `git status` comes back clean without one. Consequence: **stage by explicit
 path, never `git add -A`** — an earlier commit swept ~33k lines of `CMakeFiles/`
 into the repo that way. `.idea/` is untracked and should stay that way.
+
+A local `.gitignore` may sit in the working tree; it lists itself on its first
+line, so it never shows in `git status` and is never committed. Leave it
+untracked. It also hides `cmake-build-debug/` internals and `.cmake/`, so do not
+trust a clean `git status` on its own as proof that `clean` worked — use
+`git status --short --ignored`.
 
 **Do not derive test expectations from the implementation.** Several tests in
 `Tests/test_digest.cpp` exist specifically to be independent of the code they
@@ -117,7 +133,11 @@ no longer vendored; clone it separately at commit `82994c5` of
 `github.com/Nheyer/restriction-enzyme-digest-simulator` and run both over the
 same corpus. The CLI surfaces match apart from the program name, which differs
 in the usage line and the required-argument error. Include `B/D/H/V` in any
-ambiguity corpus — that is where subset and intersection diverge most.
+ambiguity corpus — that is where subset and intersection diverge most. For
+anything touching input handling add CRLF, blank-only, empty, headerless and
+invalid-character files: after the shared reader went in, 140 such runs matched
+the pre-change binary byte for byte, and matched the Python on all but the
+control-character message below.
 
 **Licensing: GPL v3 governs, and the MIT notice stays.** `Enzyme-digest` is a
 derivative of MIT-licensed work by Collins Amatu Gorgerat. MIT is
@@ -128,8 +148,28 @@ the CMake install list. The extent of divergence from the original does not
 retire the obligation — a translation is a derivative work. This was raised and
 settled; do not relitigate it.
 
+**Scope of the MIT notice** (audited September 2026; the README has the table).
+It bites on the port `.cpp` — `digest_linear`, `digest_circular`,
+`print_fragment_table`, `draw_ascii_gel`, the shape of `main()`, and the wording
+of `parse_fasta`'s errors — and on the 100 bp ladder in `enzyme_data.hpp`. The
+FASTA *reading* is not in that list: it is `CppSrc/common/fasta.hpp`, which grew
+out of the `MSA-to-consensus` reader and takes nothing from the Python. `Data/restriction_enzymes.csv` is **not**
+Collins's: it is the fork's NEB compilation, every line by Nheyer, and Collins's
+original was a 20-enzyme table in another format. Everything else is plain
+GPL v3, tagged `SPDX-License-Identifier: GPL-3.0-only`. The CSVs cannot carry a
+header (the loader would read it as data), so the README covers them.
+When re-checking against the fork, blame with `git blame -C -C -C -M 82994c5`.
+Plain blame credits `enzyme_data.py` wholly to whoever *moved* the tables and
+shows no Collins line in it, which hides the ladder.
+
 ## Known warts
 
+- **`Enzyme-digest`'s `py_repr` prints a control character raw**, where Python
+  prints its escape (`'\x0c'` for a form feed). Both tools refuse the input; only
+  the invalid-character message differs, so "byte for byte" is true for every
+  input except one holding a control character. Found September 2026 with a
+  form feed and a vertical tab in a sequence line. Unfixed, and unrelated to the
+  shared FASTA reader.
 - **`encode_nucliotide` has no return for non-IUPAC input**
   (`CppSrc/MSA-to-consensus/`). It warns `control reaches end of non-void
   function` on every build and is UB if ever reached. Unfixed.

@@ -475,12 +475,14 @@ rather than let it become a zero second step.
 | `CppSrc/PCR-protocol/PCR_Protocol.cpp` | `PCR-protocol` |
 | `CppSrc/PCR-protocol/pcr_data.hpp` | Nearest-neighbour parameters and primer limits, each with its source — lookup tables only, no logic |
 | `CppSrc/PCR-protocol/polymerase_csv_embedded.hpp.in` | Template CMake fills with the polymerase CSV at configure time; required to build |
+| `CppSrc/common/fasta.hpp` | The FASTA reader all three tools share. Header only, not a target, no `main()` — each tool is still one translation unit |
 | `Data/restriction_enzymes.csv` | The enzyme database, in NEB `^`/`_` notation. **The source of truth** — see [Enzyme data](#enzyme-data) |
 | `Data/polymerases.csv` | The polymerase table, from the datasheets. **The source of truth** — see [Polymerase data](#polymerase-data) |
 | `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
 | `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
 | `Tests/test_pcr.cpp` | CUnit unit tests for `PCR-protocol`, same |
+| `Tests/test_fasta.cpp` | CUnit unit tests for the shared reader; it includes the header directly, there is no `main()` to rename |
 | `LICENSE.restriction-digest` | MIT notice for the code `Enzyme-digest` was ported from, see [License](#license) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
 | `External_tools/cunit` | [cunity/cunit](https://gitlab.com/cunity/cunit), unit test framework (build dependency) |
@@ -493,10 +495,11 @@ rather than let it become a zero second step.
 `Tests/` unit tests all three tools with CUnit:
 
 ```bash
-cmake --build . --target test_consensus test_digest test_pcr
+cmake --build . --target test_consensus test_digest test_pcr test_fasta
 ./bin/test_consensus
 ./bin/test_digest
 ./bin/test_pcr
+./bin/test_fasta
 ```
 
 or through CTest, which is what CI would use:
@@ -648,7 +651,9 @@ done
 **This project is licensed under the GPL v3 — see [LICENSE](LICENSE).** That is
 the licence you receive it under and the one that binds anything you build on
 it. There is no second licence to choose from and no part of the repository is
-offered under different terms.
+offered under different terms. Source files carry an
+`SPDX-License-Identifier: GPL-3.0-only` line; the CSV and fixture files cannot
+hold a header and are covered by this section instead.
 
 Copyright © 2026 The Zabel Lab at Colorado State University, for the work in
 this repository — including the C++ port of the digest simulator, which is a
@@ -657,10 +662,30 @@ derivative of the code it was ported from.
 
 ### Third party attribution
 
-`CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` and
-`Data/restriction_enzymes.csv` are derived from the Python restriction digest
-simulator, © Collins Amatu Gorgerat, which is MIT licensed —
-[LICENSE.restriction-digest](LICENSE.restriction-digest).
+`CppSrc/Enzyme-digest/Restriction_Enzyme_Digest.cpp` is a translation of the
+Python restriction digest simulator, © Collins Amatu Gorgerat, which is MIT
+licensed — [LICENSE.restriction-digest](LICENSE.restriction-digest). What
+descends from Collins's original first commit (`8661193`) is `digest_linear`,
+`digest_circular`, `print_fragment_table`, `draw_ascii_gel`, the shape of `main()`
+with its original options, the 100 bp ladder, and the wording of `parse_fasta`'s
+error messages. Reading the FASTA itself is now the shared
+`CppSrc/common/fasta.hpp`, which grew out of the `MSA-to-consensus` reader and
+takes nothing from the Python; `parse_fasta` in the port is only what wraps it.
+The enzyme matching, NEB notation, IUPAC handling, CSV loading and the rest of
+the CLI were added to the Python in the fork after that commit, or are new in the
+port.
+
+That is the whole of the MIT lineage; nothing else in the repository descends
+from that code:
+
+| Path | Where it comes from | MIT notice |
+|---|---|---|
+| `Restriction_Enzyme_Digest.cpp` | The translation above | Yes — the header block stays with the whole file |
+| `enzyme_data.hpp` | The ladder is Collins's `DNA_LADDER_100BP`; the IUPAC codes and complements are the standard nomenclature | The ladder only, noted in the file |
+| `CppSrc/common/fasta.hpp` | The FASTA reader all three tools share. Grew out of the `MSA-to-consensus` reader; nothing taken from the port's `parse_fasta` | No |
+| `Tests/test_digest.cpp` | Case names and layout follow Collins's tests; the inputs and assertions are rewritten, apart from the two trivial no-cuts cases (`digest_linear` and `digest_circular` of 100 with no cuts, giving `[100]`), which are identical | A provenance note in the file |
+| `Data/restriction_enzymes.csv` | NEB's commercially available specificities in NEB notation, compiled in the fork (`a2e48c4`) and checked against REBASE. Collins's original table was 20 enzymes in another format and none of it is in this file | **No** |
+| Everything else — `MSA-to-consensus`, `PCR-protocol`, their tests, `polymerases.csv`, the fixtures, the build files | Written here, or from the datasheets and papers cited in the files | No |
 
 This is attribution, not an alternative licence. MIT is GPL compatible, which is
 exactly why that code can be absorbed here: the combined work is distributed

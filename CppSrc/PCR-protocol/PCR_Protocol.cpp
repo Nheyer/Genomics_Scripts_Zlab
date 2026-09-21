@@ -6,6 +6,8 @@
 // This file is part of Genomics_Scripts_Zlab and is distributed under the
 // GPL v3 - see the LICENSE file at the root of the repository.
 //
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // What it computes, and where each number comes from:
 //
 //   Primer Tm   SantaLucia 1998 unified nearest-neighbour model with its salt
@@ -42,6 +44,7 @@
 
 #include <argparse/argparse.hpp>
 
+#include "fasta.hpp"
 #include "pcr_data.hpp"
 #include "polymerase_csv_embedded.hpp"
 
@@ -518,29 +521,24 @@ static int extension_seconds(const Polymerase &p, long amplicon_bp, bool simple_
 
 // ---------------------------------------------------------------- template ---
 
+// Reading is the shared fasta.hpp; this keeps the messages this tool has always
+// given, each with the path so the user can tell which of the two files it was.
 static std::vector<std::pair<std::string, std::string> > parse_fasta(const std::string &path) {
-    std::ifstream handle(path.c_str());
-    if (!handle) {
-        throw std::runtime_error("File not found: " + path);
-    }
-    std::vector<std::pair<std::string, std::string> > records;
-    std::string line;
-    while (std::getline(handle, line)) {
-        std::string text = trimmed(line);
-        if (text.empty()) { continue; }
-        if (text[0] == '>') {
-            records.push_back(std::make_pair(trimmed(text.substr(1)), std::string()));
-        } else {
-            if (records.empty()) {
+    fasta::options opt;
+    opt.uppercase = true;
+    try {
+        return fasta::header_and_seq(fasta::read_file(path, opt));
+    } catch (const fasta::error &e) {
+        switch (e.kind()) {
+            case fasta::problem::cannot_open:
+                throw std::runtime_error("File not found: " + path);
+            case fasta::problem::sequence_before_header:
                 throw std::runtime_error("FASTA file missing header line: " + path);
-            }
-            records.back().second += upper_of(text);
+            case fasta::problem::no_records:
+                throw std::runtime_error("No sequences found in FASTA file: " + path);
         }
+        throw;
     }
-    if (records.empty()) {
-        throw std::runtime_error("No sequences found in FASTA file: " + path);
-    }
-    return records;
 }
 
 // The pair from a primer FASTA: exactly two records, forward first, reverse

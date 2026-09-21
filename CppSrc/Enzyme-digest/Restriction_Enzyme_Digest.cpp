@@ -12,6 +12,8 @@
 // GPL v3 - see the LICENSE file at the root of the repository. That is the
 // licence you receive it under.
 //
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // It is also a derivative work of MIT licensed code, and that notice is
 // reproduced below because keeping it is a condition of the permission that
 // allows the code to be used here. MIT is GPL compatible, so this does not put
@@ -43,6 +45,18 @@
 //
 // The full notice is also kept in LICENSE.restriction-digest at the repo root.
 //
+// The portion it covers is what descends from the original's first commit
+// (8661193, by the copyright holder above): digest_linear, digest_circular,
+// print_fragment_table, draw_ascii_gel, the shape of main() and its original
+// options, the ladder in enzyme_data.hpp, and the wording of parse_fasta's
+// errors. Reading the FASTA itself is the shared fasta.hpp, which grew out of
+// the MSA-to-consensus reader and takes nothing from the Python; parse_fasta
+// here is only what wraps it. Everything else here - IUPAC matching, NEB
+// notation, the CSV loader, site finding, cut normalisation, --list-enzymes,
+// --convert - was added to the Python after that commit, or is new in this
+// port. That is a record of where the notice bites, not a way to shed it from
+// the file: it stays with the whole file, see above.
+//
 // Where this differs from the Python: matching does not go through a regex
 // engine. Each IUPAC code is a 4 bit mask over {A,C,G,T} and a site is matched
 // by walking the window and testing masks, so there is no pattern compilation
@@ -67,6 +81,7 @@
 
 #include "enzyme_data.hpp"
 #include "enzyme_csv_embedded.hpp"
+#include "fasta.hpp"
 
 using namespace enzyme_data;
 
@@ -858,56 +873,44 @@ static std::string strip_gaps(const std::string &sequence, int *removed_out) {
 
 // Parse a FASTA file into (header, sequence) pairs. Accepts A/C/G/T only,
 // unless allow_ambiguity also permits every IUPAC code and the '-' gap.
+//
+// The reading itself is the shared fasta.hpp. What stays here is what is this
+// tool's own: the alphabet check, run on each line so the message can name the
+// line, and the wording of the errors, which is the Python's.
 static std::vector<std::pair<std::string, std::string> > parse_fasta(const std::string &filepath,
                                                                      bool allow_ambiguity) {
     std::set<char> allowed = sequence_alphabet(allow_ambiguity);
-    std::vector<std::pair<std::string, std::string> > sequences;
-    std::ifstream handle(filepath.c_str());
-    if (!handle) {
-        std::cerr << "Error: File not found: " << filepath << std::endl;
-        std::exit(1);
-    }
-    std::string line;
-    bool have_header = false;
-    std::string current_header;
-    std::string current_seq;
-    int lineno = 0;
-    while (std::getline(handle, line)) {
-        lineno++;
-        std::string text = trimmed(line);
-        if (text.empty()) { continue; }
-        if (text[0] == '>') {
-            if (have_header) { sequences.push_back(std::make_pair(current_header, current_seq)); }
-            current_header = trimmed(text.substr(1));
-            current_seq.clear();
-            have_header = true;
-        } else {
-            if (!have_header) {
-                std::cerr << "Error parsing FASTA: FASTA file missing header line" << std::endl;
-                std::exit(1);
-            }
-            std::string upper = upper_of(text);
-            std::set<char> bad_set;
-            for (char c : upper) {
-                if (!allowed.count(c)) { bad_set.insert(c); }
-            }
-            if (!bad_set.empty()) {
-                std::vector<char> bad(bad_set.begin(), bad_set.end());
-                std::cerr << "Error parsing FASTA: "
-                          << bad_alphabet_message(bad, current_header, lineno, allow_ambiguity)
-                          << std::endl;
-                std::exit(1);
-            }
-            current_seq += upper;
+    fasta::options opt;
+    opt.uppercase = true;
+    opt.check_line = [&](const fasta::entry &current, const std::string &upper, int lineno) {
+        std::set<char> bad_set;
+        for (char c : upper) {
+            if (!allowed.count(c)) { bad_set.insert(c); }
         }
-    }
-    if (have_header) {
-        sequences.push_back(std::make_pair(current_header, current_seq));
-    } else if (sequences.empty()) {
-        std::cerr << "Error parsing FASTA: No sequences found in FASTA file" << std::endl;
+        if (!bad_set.empty()) {
+            std::vector<char> bad(bad_set.begin(), bad_set.end());
+            std::cerr << "Error parsing FASTA: "
+                      << bad_alphabet_message(bad, current.header, lineno, allow_ambiguity)
+                      << std::endl;
+            std::exit(1);
+        }
+    };
+    try {
+        return fasta::header_and_seq(fasta::read_file(filepath, opt));
+    } catch (const fasta::error &e) {
+        switch (e.kind()) {
+            case fasta::problem::cannot_open:
+                std::cerr << "Error: File not found: " << filepath << std::endl;
+                break;
+            case fasta::problem::sequence_before_header:
+                std::cerr << "Error parsing FASTA: FASTA file missing header line" << std::endl;
+                break;
+            case fasta::problem::no_records:
+                std::cerr << "Error parsing FASTA: No sequences found in FASTA file" << std::endl;
+                break;
+        }
         std::exit(1);
     }
-    return sequences;
 }
 
 // ---------------------------------------------------------------- output ---

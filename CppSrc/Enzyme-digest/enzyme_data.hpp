@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // Static reference data for the restriction enzyme digest simulator.
 //
 // Lookup tables only - no logic, and nothing here depends on the simulator, so
@@ -48,7 +50,11 @@ inline constexpr char GAP_CHAR = '-';
 inline constexpr char COMPLEMENT_FROM[] = "ACGTRYSWKMBDHVN";
 inline constexpr char COMPLEMENT_TO[]   = "TGCAYRSWMKVHDBN";
 
-// Band sizes of a standard 100 bp DNA ladder, for the simulated gel.
+// Band sizes of a standard 100 bp DNA ladder, for the simulated gel. This list
+// is the one thing in this file that comes from the Python original's first
+// commit (DNA_LADDER_100BP, MIT, Collins Amatu Gorgerat) - the IUPAC codes and
+// complements above are the standard nomenclature. The notice for it is in
+// LICENSE.restriction-digest and the header of Restriction_Enzyme_Digest.cpp.
 inline constexpr int DNA_LADDER_100BP[] = {
     100, 200, 300, 400, 500, 600, 700, 800, 900, 1000,
     1200, 1500, 2000, 3000, 4000, 5000, 6000, 8000, 10000

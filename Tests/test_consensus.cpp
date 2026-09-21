@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // Unit tests for MSA_fasta_to_Consensus.
 //
 // The program is one translation unit that owns its own main(), so we rename

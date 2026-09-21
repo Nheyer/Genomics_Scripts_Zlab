@@ -1,4 +1,14 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // Unit tests for Restriction_Enzyme_Digest.
+//
+// Provenance: the case names and layout of the site-finding and digest tests
+// (test_two_sites, test_digest_linear_*, test_digest_circular_* and friends)
+// follow the tests in the Python original's first commit (8661193, MIT). The
+// inputs and assertions are rewritten, apart from the two trivial no-cuts cases
+// (a length of 100 with no cuts is one fragment of 100, linear and circular),
+// which are identical. See the notice in the header of
+// Restriction_Enzyme_Digest.cpp.
 //
 // Same arrangement as test_consensus.cpp: the program is one translation unit
 // that owns its own main(), so we rename that main out of the way and pull the

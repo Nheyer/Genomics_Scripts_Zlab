@@ -1,9 +1,16 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// MSA-to-consensus - collapses a multiple sequence alignment into one consensus
+// sequence. Part of Genomics_Scripts_Zlab, distributed under the GPL v3: see the
+// LICENSE file at the root of the repository.
+
 #include <iostream>
 #include <cctype>
 //#include <bits/stdc++.h>
 #include <fstream>
 #include <string>
 #include <argparse/argparse.hpp>
+#include "fasta.hpp"
 #include <climits>
 // DEBUG LVL 0-9
 #define DEBUG 0 
@@ -33,16 +40,8 @@
 // Global vars
 
 
-struct fasta_entry {
-    std::string name;
-    std::string description;
-    std::string seq;
-    void clear() {
-        seq.clear();
-        name.clear();
-        description.clear();
-    }
-};
+// The record type is the shared reader's; this name is what the rest of the file uses.
+using fasta_entry = fasta::entry;
 
 char clean_nucliotide(char c) {
     char nucliotide = toupper(c);
@@ -143,10 +142,6 @@ int parse_CLI(argparse::ArgumentParser *Parser, int &argument_number, const char
 }
 
 int accumulate_seqs_from_fasta(std::string inPath,std::vector<fasta_entry> * Store,int is_nucliotides = -1){
-    std::ifstream fileI;
-    std::string ln;
-    fasta_entry temp;
-    int i=0 , j = 0;
     if(is_nucliotides == 0 or inPath.substr(inPath.find_last_of(".") + 1) == "faa"){
         std::cerr << "Opening: "
                   << inPath
@@ -163,38 +158,18 @@ int accumulate_seqs_from_fasta(std::string inPath,std::vector<fasta_entry> * Sto
         std::cerr << "Found unrecognised file " << inPath << " please use the -fna or -faa flags or change your file endings" <<std::endl;
         return -1;
     }
-    //open file
-    fileI.open(inPath);
-    //loop through file
-    while(getline(fileI, ln)){
-#if DEBUG > 0
-            std::cerr <<  "LN-"<< i << " read line:\t" << ln << std::endl;
-#endif
-
-        if (ln[0] == '>') {
-            //if if is a name line get the name, and put any thing after a space in decription
-            if (j>0) {
-                Store->push_back(temp);
-                temp.clear();
-            }
-            auto cur_space = ln.find_first_of(' ');
-            if (cur_space != std::string::npos) {
-                // if there is a space anywhere we need to grab comments
-                temp.name = ln.substr(1, cur_space);
-                temp.description = ln.substr(cur_space + 1);
-            }else{
-                temp.name = ln.substr(1);
-            }
-            j++;
-        } else {
-            // we are in a sequence block just add it to the seq
-            temp.seq.append(ln);
-        }
-        i++;
+    int lines = 0;
+    std::vector<fasta_entry> records;
+    try {
+        records = fasta::read_file(inPath, fasta::options(), &lines);
+    } catch (const fasta::error &e) {
+        std::cerr << "Could not read " << inPath << ": " << e.what() << std::endl;
+        return -1;
     }
-    // add the last seq
-    Store->push_back(temp);
-    std::cerr << "Found: " << j << " sequense(s) in " << i << " lines" << std::endl;
+    for (fasta_entry &record : records) {
+        Store->push_back(std::move(record));
+    }
+    std::cerr << "Found: " << records.size() << " sequense(s) in " << lines << " lines" << std::endl;
     return 0;
 }
 

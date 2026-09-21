@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-only
+//
 // Unit tests for PCR_Protocol.
 //
 // Same arrangement as the other suites: the program is one translation unit
