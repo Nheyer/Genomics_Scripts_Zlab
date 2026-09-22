@@ -1,0 +1,12 @@
+// Generated at configure time by CMake from Data/digest_conditions.csv.
+// Do not edit, and do not commit the generated copy - edit the CSV instead.
+//
+// The CSV is embedded verbatim rather than re-encoded as a table, so there is
+// exactly one copy of the data and the built-in table is parsed by the same
+// loader that --conditions-db uses on a file.
+#ifndef DIGEST_CSV_EMBEDDED_HPP
+#define DIGEST_CSV_EMBEDDED_HPP
+
+inline constexpr char EMBEDDED_DIGEST_CSV[] = R"DIGESTCSV(@DIGEST_CSV_CONTENTS@)DIGESTCSV";
+
+#endif  // DIGEST_CSV_EMBEDDED_HPP

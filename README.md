@@ -27,8 +27,8 @@ cmake .
 cmake --build .
 ```
 
-The binaries land in `bin/MSA-to-consensus`, `bin/Enzyme-digest` and
-`bin/PCR-protocol`; build one on its own by naming it as the `--target`. The build uses the vendored
+The binaries land in `bin/MSA-to-consensus`, `bin/Enzyme-digest`,
+`bin/PCR-protocol` and `bin/Digest-protocol`; build one on its own by naming it as the `--target`. The build uses the vendored
 `External_tools/argparse` headers, not any system wide install, so it does not
 matter whether argparse is installed on the machine.
 
@@ -49,6 +49,7 @@ cmake --install .
 <prefix>/bin/MSA-to-consensus
 <prefix>/bin/Enzyme-digest
 <prefix>/bin/PCR-protocol
+<prefix>/bin/Digest-protocol
 <prefix>/share/doc/Genomics_Scripts_Zlab/
 ```
 
@@ -79,8 +80,9 @@ xargs rm -f < install_manifest.txt
 | [`MSA-to-consensus`](#msa-to-consensus) | Collapses a multiple sequence alignment into one consensus sequence, masking disagreements or coding them as IUPAC ambiguity |
 | [`Enzyme-digest`](#enzyme-digest) | In silico restriction digest — cut sites, fragment sizes and an ASCII gel, over a 262 enzyme database |
 | [`PCR-protocol`](#pcr-protocol) | A reaction setup and thermocycler program for a primer pair and polymerase, with primer Tm and hairpin/dimer checks |
+| [`Digest-protocol`](#digest-protocol) | The bench side of a restriction digest — reaction setup, master mix, incubation and how to stop it, for one or more enzymes |
 
-All three write their result to stdout (or, for the first two, to a file), with
+All four write their result to stdout (or, for the first, to a file), with
 progress and errors on stderr, so redirecting stdout captures just the output.
 
 ## MSA-to-consensus
@@ -463,6 +465,227 @@ rather than let it become a zero second step.
 - **Linear templates only.** A product spanning the origin of a circular
   template is not found.
 
+## Digest-protocol
+
+The bench side of a restriction digest. `Enzyme-digest` says where an enzyme
+cuts; this says what to pipette. Give it one or more enzymes and an amount of
+DNA and it writes the reaction setup, a master mix for several tubes, the
+incubation, and how to stop it.
+
+```bash
+./bin/Digest-protocol -e EcoRI
+```
+
+```
+Restriction digest protocol: EcoRI
+
+Enzymes
+  EcoRI         G^AATT_C          10X NEBuffer EcoRI/SspI, 37 C
+
+Reaction setup (50 uL, 1 ug DNA, 10 units of each enzyme)
+  Component                           Volume      Final
+  Nuclease-free water                 to 50 uL
+  10X NEBuffer EcoRI/SspI             5 uL        1X
+  DNA                                 variable    1 ug (20 ng/uL)
+  EcoRI (10 U/uL)                     1 uL        10 U
+  Enzyme(s) 1 uL of the 50 uL, 2.0% (NEB: at most 10%).
+
+Procedure
+  1. Add the water, buffer and DNA, and the enzyme last. Keep the enzyme on ice when it is not in the freezer.
+  2. Mix by pipetting up and down, or by flicking the tube. Give it a quick spin in a microcentrifuge. Do not vortex.
+  3. Incubate at 37 C for 60 min.
+  4. Stop the reaction: with 10 uL of stop solution (NEB uses 10 uL per 50 uL reaction) if the DNA needs no further handling; if it does, heat inactivate or remove the enzyme with a spin column or phenol/chloroform extraction.
+     Heat inactivate at 65 C for 20 min.
+
+Notes
+  Amounts: NEB's Restriction Digest protocol - buffer at 1X, 10 units per ug of DNA (20 for genomic), enzyme at most 10% of the volume. Source: New England Biolabs, Restriction Digest v2, protocols.io, DOI 10.17504/protocols.io.isycefw.
+  DNA should be free of phenol, chloroform, alcohol, EDTA, detergents and excess salt; methylation can block some enzymes.
+  Time-Saver Qualified (EcoRI): NEB says 5-15 min is enough; the incubation here is 60 min.
+  EcoRI source: NEB NEBuffer Activity/Performance Chart with Restriction Enzymes (neb.com) - saved 2026-09-22; NEB Heat Inactivation (neb.com) - saved 2026-09-22
+
+Warnings
+  ! stock concentration of EcoRI not on file, so 10 U/uL is assumed (NEB's "10 units, generally 1 uL"); if your tube says otherwise, give --stock EcoRI=UNITS
+```
+
+Buffer, incubation temperature and full heat inactivation (temperature and
+minutes) come from [Conditions data](#conditions-data) whenever there is a
+row — 266 enzymes have one, so most digests need nothing extra. Stock
+concentration is never on that row (see the warning). A double digest of two
+enzymes that both have rows, and that agree on buffer, works the same way,
+with a master mix for several tubes:
+
+```bash
+./bin/Digest-protocol -e EcoRI-HF,BamHI-HF -n 6 --dna-ug 2 --dna-conc 100 --volume 100
+```
+
+```
+Reaction setup (100 uL, 2 ug DNA, 20 units of each enzyme)
+  Component                           Volume      Final
+  Nuclease-free water                 66 uL
+  10X rCutSmart                       10 uL       1X
+  DNA                                 20 uL       2 ug (20 ng/uL)
+  EcoRI-HF (10 U/uL)                  2 uL        20 U
+  BamHI-HF (10 U/uL)                  2 uL        20 U
+  Enzyme(s) 4 uL of the 100 uL, 4.0% (NEB: at most 10%).
+
+Master mix (6 reactions + 10% = 6.6, 528 uL)
+  Component                           Per rxn     Mix
+  10X rCutSmart                       10 uL       66 uL
+  EcoRI-HF (10 U/uL)                  2 uL        13.2 uL
+  BamHI-HF (10 U/uL)                  2 uL        13.2 uL
+  Nuclease-free water                 66 uL       435.6 uL
+  Aliquot 80 uL per tube, then add 20 uL DNA.
+```
+
+`BamHI-HF` cannot be heat inactivated at all (NEB lists none for it), which the
+procedure step says; `EcoRI-HF`'s row gives a full 65 C for 20 min. When the
+enzymes in a tube disagree on how, or whether, they can be heat inactivated,
+each gets its own line rather than one line speaking for both. Give conditions
+on the command line — `NAME:BUFFER:TEMP_C[:INACTIVATION]` — to use an enzyme
+with no row, or to override one that has it:
+
+```bash
+./bin/Digest-protocol -e SomeNewEnzyme:rCutSmart:37:65/20 --stock SomeNewEnzyme=20
+```
+
+### Options
+
+| Flag | Meaning |
+|---|---|
+| `-e`, `--enzymes` | Comma separated enzymes, each `NAME` or `NAME:BUFFER:TEMP_C[:INACTIVATION]` (required) — see below |
+| `-d`, `--dna-ug` | DNA in µg per reaction (default: the most NEB pairs with the volume, 1 µg at 50 µL) |
+| `--dna-conc` | DNA concentration in ng/µL; works out the volume of DNA per tube |
+| `--dna-volume` | DNA per tube in µL, left out of the master mix, used when there is no `--dna-conc` (default 1) |
+| `--volume` | Reaction volume in µL (default 50) |
+| `-n`, `--replicates` | Number of reactions (default 1); above 1, a master mix is added with 10% extra |
+| `--genomic` | Genomic DNA: 20 units per µg of DNA instead of 10 |
+| `--units-per-ug` | Units of each enzyme per µg, instead of NEB's 10 (20 with `--genomic`) |
+| `--stock` | An enzyme's concentration in U/µL as `NAME=UNITS`, repeatable; read it off the tube |
+| `-t`, `--minutes` | Incubation time in minutes (default 60) |
+| `--buffer` | The one 10X buffer for the whole reaction, when the enzymes' own do not settle it |
+| `--incubate-c` | The one incubation temperature for the whole reaction |
+| `--conditions-db` | Read per-enzyme conditions from a CSV instead of the built in table |
+| `--list-enzymes` | List the known enzymes and which have conditions on file, and exit |
+
+### Enzyme specifications
+
+An enzyme is checked against the same 287 enzymes `Enzyme-digest` reads, case
+insensitively, so a typo is an error and not a protocol for something that does
+not exist. There are three forms:
+
+| Form | Example | Meaning |
+|---|---|---|
+| `NAME` | `EcoRI` | Conditions from the table if there is a row, otherwise unknown |
+| `NAME:BUFFER:TEMP_C` | `EcoRI:rCutSmart:37` | Buffer and incubation temperature as you read them off NEB's chart |
+| `NAME:BUFFER:TEMP_C:INACTIVATION` | `EcoRI:rCutSmart:37:65/20` | Also heat inactivation: `TEMP_C/MINUTES`, `TEMP_C` alone if the time is not known, or `no` if NEB lists none |
+
+The second and third forms also let you use an enzyme neither table lists, such
+as a `-HF` version. Conditions given on the command line win over a table row,
+and if they differ from it the output says so, since the row's source no longer
+describes them.
+
+Several enzymes make a double digest, and it needs one buffer and one
+temperature. If the enzymes disagree the tool stops rather than pick one:
+digest them one after the other, or give `--buffer` / `--incubate-c` once you
+have checked a single choice works for all of them.
+
+### How the numbers are worked out
+
+Everything that is not per enzyme comes from one document, NEB's *Restriction
+Digest* protocol (version 2, [protocols.io, DOI
+10.17504/protocols.io.isycefw](https://dx.doi.org/10.17504/protocols.io.isycefw),
+CC BY), read in full; `digest_data.hpp` cites each constant to it.
+
+- **Buffer** at 1X from a 10X stock: a tenth of the volume.
+- **Enzyme** at 10 units for every µg of DNA — the upper end of NEB's "5–10 units
+  per µg", and 20 for genomic DNA, the upper end of its 10–20. Each enzyme of a
+  double digest gets its own full dose. The volume comes from the stock
+  concentration; where that is not known the tool takes NEB's "10 units,
+  generally 1 µL", which is 10 U/µL, and says it has.
+- **At most 10% of the volume is enzyme**, because the glycerol it is stored in
+  causes star activity. More than that is an error, not a warning.
+- **DNA** against volume follows NEB's table for smaller reactions: 0.1 µg in
+  10 µL, 0.5 µg in 25 µL, 1 µg in 50 µL, and 1 µg per 50 µL above that. That
+  table is what `--dna-ug` defaults to, and more than it is a warning.
+- **Stop solution** at 10 µL per 50 µL of reaction, as NEB does.
+- **Master mix** takes 10% extra for pipetting loss. That is this repo's
+  convention, the same as `PCR-protocol`, and not NEB's.
+
+The three rows NEB tabulates — 1 unit / 0.1 µg / 1 µL buffer at 10 µL, 5 / 0.5 /
+2.5 at 25 µL, 10 / 1 / 5 at 50 µL — come out exactly, and a test holds them
+there.
+
+### Conditions data
+
+`Data/digest_conditions.csv` holds what depends on the enzyme, in the same
+arrangement as the enzyme and polymerase tables: embedded at configure time and
+parsed by the loader `--conditions-db` uses. It holds 266 rows, built from two
+of NEB's own reference pages the person saved from their own browser and
+handed over as files — NEB's site refuses automated access (HTTP 403), and a
+page pasted into chat isn't a file a parser can read reliably, so a saved page
+was the way in both times. The rule for this repo is that every number comes
+from the manufacturer and is cited, never typed from memory: `source` names
+every page a row's data came from, and the save date.
+
+The **NEBuffer Performance Chart** (saved 2026-09-22) gives buffer, incubation
+temperature, heat-inactivation temperature and Time-Saver status, but never a
+heat-inactivation *time*. The **Heat Inactivation** page (also saved
+2026-09-22) gives a temperature and a time together, per enzyme. Its
+temperature was checked against the chart's for all 266 enzymes the two pages
+share before either was trusted to fill in the other — zero disagreements — so
+the merge fills `inactivate_min` from a second, independent NEB source, not a
+recalled default; every non-"No" time on that page reads exactly "20 minutes",
+with no exception among its 280 rows. Fourteen enzymes it names use older,
+non-versioned spellings with no match in the table (`BsaI-HF` where the chart
+has `BsaI-HFv2`, and similar) and were left out rather than guess the mapping.
+
+Add a row for an enzyme neither page lists and it is picked up on the next
+`cmake .`. The loader refuses a row that is missing a column, has a
+non-numeric number, or has no source. Not every chart NEB publishes carries
+every column — stock concentration is on neither of these two — so three
+columns have their own "not known" value rather than forcing a row to invent
+one or be refused. Every row on file today has `inactivate_c`/`inactivate_min`
+fully known (a real temperature and minutes, or `0,0` where NEB lists no heat
+inactivation) and `0` for `stock_u_per_ul` (not on either page); the
+"temperature known, time not" state below is what a single-source row would
+use, and is what the tool falls back to if you add one from the chart alone:
+
+| Column | Meaning |
+|---|---|
+| `enzyme` | Name, as NEB spells it; may be one the enzyme table lacks, such as `EcoRI-HF` |
+| `buffer` | The 10X buffer NEB lists |
+| `incubation_c` | Incubation temperature |
+| `inactivate_c` | Heat inactivation temperature: `-1` not known, `0` NEB lists none, else the temperature |
+| `inactivate_min` | Minutes to go with it: `-1` not known (the temperature above may still be), `0` only paired with `inactivate_c` `0`, else the minutes |
+| `time_saver` | `1` if NEB lists it as Time-Saver Qualified, `0` if NEB lists it as not, `-1` if this source does not say |
+| `stock_u_per_ul` | Concentration of the tube NEB supplies, U/µL; `0` if this source does not say |
+| `notes` | Anything not straight off the page; printed with the protocol |
+| `source` | Where NEB lists it. Required |
+
+The same `-1`/temperature-alone forms work on `--enzymes`: `EcoRI:rCutSmart:37:65`
+means the temperature is known and the time is not, same as `65/20` means both
+are and `no` means NEB lists no heat inactivation.
+
+### Known limitations
+
+- **No stock concentration ships for any enzyme**, because neither of the two
+  NEB pages the table is built from carries it. The output assumes 10 U/µL and
+  warns whenever it does.
+- **Buffer, temperature and heat inactivation are on file for 266 enzymes, not
+  all of them.** An enzyme newer than the two pages, or a variant neither
+  names, needs its conditions given on the command line; the output says so
+  and names what is missing rather than guess.
+- **The stock concentration is assumed** at 10 U/µL unless a row or `--stock`
+  says otherwise, so the enzyme volume can be off by a factor of two for a
+  20 U/µL stock. The output warns whenever it is doing this.
+- **No methylation or star activity check per enzyme**, and no SAM supplement
+  for the enzymes that need it. Those go in a row's `notes`; none of the rows
+  on file today carry one.
+- **It does not look at the DNA.** Whether the enzymes cut it, and where, is
+  `Enzyme-digest`.
+- **No plan for a sequential digest.** It refuses enzymes that disagree on buffer
+  or temperature; it does not schedule the two steps.
+
 ## Repository layout
 
 | Path | What it is |
@@ -475,13 +698,18 @@ rather than let it become a zero second step.
 | `CppSrc/PCR-protocol/PCR_Protocol.cpp` | `PCR-protocol` |
 | `CppSrc/PCR-protocol/pcr_data.hpp` | Nearest-neighbour parameters and primer limits, each with its source — lookup tables only, no logic |
 | `CppSrc/PCR-protocol/polymerase_csv_embedded.hpp.in` | Template CMake fills with the polymerase CSV at configure time; required to build |
-| `CppSrc/common/fasta.hpp` | The FASTA reader all three tools share. Header only, not a target, no `main()` — each tool is still one translation unit |
+| `CppSrc/Digest-protocol/Digest_Protocol.cpp` | `Digest-protocol` |
+| `CppSrc/Digest-protocol/digest_data.hpp` | NEB's protocol constants, each with its source — lookup constants only, no logic |
+| `CppSrc/Digest-protocol/digest_csv_embedded.hpp.in` | Template CMake fills with the conditions CSV at configure time; required to build |
+| `CppSrc/common/fasta.hpp` | The FASTA reader shared by the three tools that read FASTA. Header only, not a target, no `main()` — each tool is still one translation unit |
 | `Data/restriction_enzymes.csv` | The enzyme database, in NEB `^`/`_` notation. **The source of truth** — see [Enzyme data](#enzyme-data) |
 | `Data/polymerases.csv` | The polymerase table, from the datasheets. **The source of truth** — see [Polymerase data](#polymerase-data) |
+| `Data/digest_conditions.csv` | Per-enzyme digest conditions for 266 enzymes, from two of NEB's reference pages. **The source of truth** — see [Conditions data](#conditions-data) |
 | `Data/test_files/` | Known truth fixtures, see [Test files](#test-files) |
 | `Tests/test_consensus.cpp` | CUnit unit tests, see [Running the tests](#running-the-tests) |
 | `Tests/test_digest.cpp` | CUnit unit tests for `Enzyme-digest`, same |
 | `Tests/test_pcr.cpp` | CUnit unit tests for `PCR-protocol`, same |
+| `Tests/test_digest_protocol.cpp` | CUnit unit tests for `Digest-protocol`, same |
 | `Tests/test_fasta.cpp` | CUnit unit tests for the shared reader; it includes the header directly, there is no `main()` to rename |
 | `LICENSE.restriction-digest` | MIT notice for the code `Enzyme-digest` was ported from, see [License](#license) |
 | `External_tools/argparse` | [p-ranav/argparse](https://github.com/p-ranav/argparse), header only CLI parsing (build dependency) |
@@ -492,14 +720,15 @@ rather than let it become a zero second step.
 
 ### Running the tests
 
-`Tests/` unit tests all three tools with CUnit:
+`Tests/` unit tests all four tools with CUnit:
 
 ```bash
-cmake --build . --target test_consensus test_digest test_pcr test_fasta
+cmake --build . --target test_consensus test_digest test_pcr test_fasta test_digest_protocol
 ./bin/test_consensus
 ./bin/test_digest
 ./bin/test_pcr
 ./bin/test_fasta
+./bin/test_digest_protocol
 ```
 
 or through CTest, which is what CI would use:
@@ -551,6 +780,14 @@ The PCR suite pins every expected number to something outside the code:
   sequence it must find nothing.
 - **Annealing and extension by hand**, including every boundary the datasheets
   draw: 20 vs 21 nt for Phusion, "over 6 kb" for Q5, "above 65 °C" for Taq.
+
+The digest protocol suite pins the amounts to NEB's own table for 10, 25 and
+50 µL, typed in the test separately from `digest_data.hpp`, and works everything
+else out by hand: the water in a typical digest (50 − 5 − 1 − 1 = 43 µL), the
+exact boundary of the 10% enzyme limit, and a master mix down to 189.2 µL of
+water. It also holds the conditions loader to its rules — no row without a
+source — and checks the enzyme specs and what a double digest can and cannot
+agree on.
 
 ### The digest simulator
 
@@ -682,10 +919,10 @@ from that code:
 |---|---|---|
 | `Restriction_Enzyme_Digest.cpp` | The translation above | Yes — the header block stays with the whole file |
 | `enzyme_data.hpp` | The ladder is Collins's `DNA_LADDER_100BP`; the IUPAC codes and complements are the standard nomenclature | The ladder only, noted in the file |
-| `CppSrc/common/fasta.hpp` | The FASTA reader all three tools share. Grew out of the `MSA-to-consensus` reader; nothing taken from the port's `parse_fasta` | No |
+| `CppSrc/common/fasta.hpp` | The FASTA reader shared by the three tools that read FASTA. Grew out of the `MSA-to-consensus` reader; nothing taken from the port's `parse_fasta` | No |
 | `Tests/test_digest.cpp` | Case names and layout follow Collins's tests; the inputs and assertions are rewritten, apart from the two trivial no-cuts cases (`digest_linear` and `digest_circular` of 100 with no cuts, giving `[100]`), which are identical | A provenance note in the file |
 | `Data/restriction_enzymes.csv` | NEB's commercially available specificities in NEB notation, compiled in the fork (`a2e48c4`) and checked against REBASE. Collins's original table was 20 enzymes in another format and none of it is in this file | **No** |
-| Everything else — `MSA-to-consensus`, `PCR-protocol`, their tests, `polymerases.csv`, the fixtures, the build files | Written here, or from the datasheets and papers cited in the files | No |
+| Everything else — `MSA-to-consensus`, `PCR-protocol`, `Digest-protocol`, their tests, `polymerases.csv`, `digest_conditions.csv`, the fixtures, the build files | Written here, or from the datasheets and papers cited in the files | No |
 
 This is attribution, not an alternative licence. MIT is GPL compatible, which is
 exactly why that code can be absorbed here: the combined work is distributed

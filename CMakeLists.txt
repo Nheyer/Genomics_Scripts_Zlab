@@ -17,6 +17,7 @@ endif()
 set(MSA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/MSA-to-consensus)
 set(DIGEST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/Enzyme-digest)
 set(PCR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/PCR-protocol)
+set(DIGEST_PROTOCOL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/Digest-protocol)
 # Header only code the tools share. Not a target and it has no main(): each tool
 # stays one translation unit and just #includes from here.
 set(COMMON_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CppSrc/common)
@@ -85,6 +86,22 @@ target_include_directories(PCR-protocol PRIVATE
     ${COMMON_DIR})
 target_link_libraries(PCR-protocol PRIVATE primer3_thal)
 
+# --- digest conditions table ---------------------------------------------------
+# Same arrangement again: Data/digest_conditions.csv is the only copy, embedded
+# verbatim and parsed by the loader --conditions-db uses. Digest-protocol also
+# reads the enzyme table embedded above, for the names and sites.
+file(READ ${DATA_DIR}/digest_conditions.csv DIGEST_CSV_CONTENTS)
+configure_file(
+    ${DIGEST_PROTOCOL_DIR}/digest_csv_embedded.hpp.in
+    ${GENERATED_INCLUDE_DIR}/digest_csv_embedded.hpp
+    @ONLY)
+
+add_executable(Digest-protocol ${DIGEST_PROTOCOL_DIR}/Digest_Protocol.cpp)
+target_include_directories(Digest-protocol PRIVATE
+    ${ARGPARSE_INCLUDE_DIR}
+    ${GENERATED_INCLUDE_DIR}
+    ${DIGEST_PROTOCOL_DIR})
+
 # --- tests -------------------------------------------------------------------
 # CUnit is vendored as a submodule too. We only want the library, not CUnit's
 # own test suite and examples.
@@ -135,6 +152,14 @@ if(EXISTS ${CUNIT_DIR}/CMakeLists.txt)
         FASTA_TEST_SHEEP="${DATA_DIR}/test_files/Sheep_products.fna"
         FASTA_TEST_LAMBDA="${DATA_DIR}/test_files/TEST_PCR_LAMBDA.fna")
     add_test(NAME fasta COMMAND test_fasta)
+
+    add_executable(test_digest_protocol Tests/test_digest_protocol.cpp)
+    target_include_directories(test_digest_protocol PRIVATE
+        ${ARGPARSE_INCLUDE_DIR}
+        ${GENERATED_INCLUDE_DIR}
+        ${DIGEST_PROTOCOL_DIR})
+    target_link_libraries(test_digest_protocol PRIVATE cunit)
+    add_test(NAME digest_protocol COMMAND test_digest_protocol)
 else()
     message(STATUS "cunit submodule missing, skipping tests. "
                    "Run: git submodule update --init --recursive")
@@ -144,7 +169,7 @@ endif()
 # Only the tools go out; test_consensus is for us, and cunit is a build
 # dependency that EXCLUDE_FROM_ALL above already keeps out of the install.
 include(GNUInstallDirs)
-install(TARGETS MSA-to-consensus Enzyme-digest PCR-protocol
+install(TARGETS MSA-to-consensus Enzyme-digest PCR-protocol Digest-protocol
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 # LICENSE.restriction-digest is the MIT notice for the code Enzyme-digest was
 # ported from; it has to travel with the binary we ship.

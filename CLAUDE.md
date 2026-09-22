@@ -5,7 +5,7 @@ code in this repository.
 
 ## Project status
 
-Three C++17 command line tools for the Zabel Lab at Colorado State University,
+Four C++17 command line tools for the Zabel Lab at Colorado State University,
 built with CMake:
 
 - `MSA-to-consensus` — collapses a multiple sequence alignment into one
@@ -14,6 +14,11 @@ built with CMake:
   August 2026 and verified byte-for-byte against the original.
 - `PCR-protocol` — reaction setup and thermocycler program for a primer pair
   and polymerase, with primer Tm and primer3 `thal` hairpin/dimer checks.
+- `Digest-protocol` — the bench side of a restriction digest: reaction setup,
+  master mix, incubation and stop, from NEB's Restriction Digest protocol, plus
+  buffer/temperature/heat-inactivation/Time-Saver for 266 enzymes from two of
+  NEB's own reference pages. Stock concentration is still not on file, see
+  below.
 
 `README.md` is the user-facing documentation and is kept accurate; prefer
 reading it over re-deriving how a tool behaves.
@@ -22,7 +27,7 @@ reading it over re-deriving how a tool behaves.
 
 ```bash
 cmake .                                   # configure (also embeds the enzyme CSV)
-cmake --build .                           # all three tools + test binaries
+cmake --build .                           # all four tools + test binaries
 cmake --build . --target Enzyme-digest    # one target
 ctest                                     # all suites, non-zero on failure
 ./bin/test_digest                         # one suite, verbose per-test output
@@ -33,6 +38,7 @@ cmake --build . --target clean            # see "No .gitignore" below
 ./bin/Enzyme-digest --list-enzymes        # 262 enzymes + 25 quarantined
 ./bin/PCR-protocol -p Q5 -f Data/test_files/TEST_PCR_LAMBDA.fna \
     -F GTCACCAGTGCAGTGCTTGATAACAGG -R GATGACGCATCCTCACGATAATATCCGG
+./bin/Digest-protocol -e EcoRI-HF,BamHI-HF -n 6            # conditions from Data/digest_conditions.csv
 ```
 
 **Binaries built with CLion's bundled MinGW need its runtime on PATH or they
@@ -52,7 +58,7 @@ needs no changes to be testable. Keep it that way: splitting a tool into
 `.hpp`/`.cpp` breaks that pattern.
 
 **The one exception is header-only code shared between tools, in `CppSrc/common/`.**
-`fasta.hpp` is the single FASTA reader for all three; it is not a target and has
+`fasta.hpp` is the single FASTA reader for the three tools that read FASTA; it is not a target and has
 no `main()`, so the rule above is untouched. Each tool's `parse_fasta` is a thin
 adapter over it: it maps the reader's typed errors (`fasta::problem`) onto the
 tool's own messages and adds the tool's own validation through
@@ -76,6 +82,41 @@ Never transcribe enzymes into a C++ table; two copies would drift. Re-run
 same rule: **every polymerase number comes from the manufacturer's datasheet**,
 cited in its `source` column. Anything not straight off the page goes in the
 `notes` column, which the tool prints with every protocol.
+
+`Data/digest_conditions.csv` follows the same pattern for `Digest-protocol`, and
+the same rule: **every per-enzyme figure comes from a named NEB page and is
+cited**, never from recall, and a row with no `source` is refused by the
+loader. A wrong one is silent: a wrong temperature is an undigested plasmid. It
+holds 266 rows, built from two of NEB's own reference pages the person saved
+from their own browser on 2026-09-22 and handed over as files — `neb.com`,
+`intl.neb.com` and the `?pdf=true` variants all return HTTP 403 to WebFetch, so
+neither can be fetched directly; do not spoof a browser to get round the 403:
+
+- The **NEBuffer Performance Chart** gives buffer, incubation temperature,
+  heat-inactivation temperature (never a time) and Time-Saver status.
+- The **Heat Inactivation** page gives a temperature and a time per enzyme
+  (every non-"No" time on it reads exactly "20 minutes", with no exception in
+  its 280 rows). Merged in afterwards: its temperature was checked against the
+  chart's for every enzyme the two pages share (266 of them) with zero
+  mismatches before any row was touched, so `inactivate_min` now holds a real,
+  cited 20, not a recalled default — see the merge script's reasoning in its
+  own docstring if reproducing this. Fourteen enzymes it names do not match
+  anything in the table (older, non-versioned names like `BsaI-HF` where the
+  chart has `BsaI-HFv2`) and were left out rather than guess the mapping.
+
+Both pages together leave only `stock_u_per_ul` at `0` (not known) throughout —
+see the sentinel scheme in the README's Conditions data section before
+changing the loader's validation; the `inactivate_c`/`inactivate_min` "known
+temperature, unknown time" state the loader still supports just currently has
+no row using it. The generic, not-per-enzyme figures in `digest_data.hpp` are
+from a third, different document, NEB's *Restriction Digest* protocol, read in
+full off protocols.io (DOI 10.17504/protocols.io.isycefw), which does not 403.
+Getting more data (the missing stock concentration, or filling in enzymes
+neither page names): same as before, from the person's own browser, saved to a
+file and parsed, never typed in. A page *pasted into chat* is not a file
+WebFetch or a parser can read reliably — regenerating a large paste through a
+tool call drifts (verified the hard way on 2026-09-22: an attempt at this
+silently invented icon text instead of copying it). Ask for a saved file.
 
 **`PCR-protocol` computes Tm itself but takes hairpins and dimers from primer3.**
 Our SantaLucia 1998 Tm matches primer3's `oligotm()` to 1e-6 C, and the tests
@@ -164,6 +205,16 @@ shows no Collins line in it, which hides the ladder.
 
 ## Known warts
 
+- **`Digest-protocol` has no stock concentration for any enzyme**, and no
+  buffer/temperature/inactivation at all for enzymes on neither NEB page
+  (`-Mix®` variants, anything newer than the two snapshots, and the 14
+  Heat Inactivation names with no match in the table). Buffer, temperature and
+  full heat inactivation (temperature and minutes) come from
+  `Data/digest_conditions.csv` for 266 enzymes; for the rest, or to override,
+  give them on the command line. It prints what is missing rather than guess.
+  The stock concentration falls back to NEB's "10 units, generally 1 uL"
+  (10 U/uL), which is the protocol's own ratio and not a fact about any
+  enzyme, and is warned about each time it is used.
 - **`Enzyme-digest`'s `py_repr` prints a control character raw**, where Python
   prints its escape (`'\x0c'` for a form feed). Both tools refuse the input; only
   the invalid-character message differs, so "byte for byte" is true for every
